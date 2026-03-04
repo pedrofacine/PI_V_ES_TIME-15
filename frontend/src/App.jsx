@@ -40,11 +40,11 @@ export default function App() {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui" }}>
+    <div className="bg-gradient" style={{ padding: 24, fontFamily: "system-ui" }}>
       <h2>FastAPI → React (SSE)</h2>
 
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={connect} disabled={connected}>
+        <button className="btn btn-secondary" onClick={connect} disabled={connected}>
           Conectar
         </button>
         <button onClick={disconnect} disabled={!connected}>
@@ -58,6 +58,29 @@ export default function App() {
 
       <div>
         <b>Números:</b> {numbers.join(", ")}
+      </div>
+
+      <div className="input-group">
+        <label className="input-label">E-mail</label>
+        <div className="input-wrapper">
+          <span className="input-icon">✉️</span> 
+          <input 
+            type="email" 
+            className="input-base with-icon" 
+            placeholder="seu-email@email.com" 
+          />
+        </div>
+      </div>
+
+      <div className="input-group">
+        <label className="input-label">Sobrenome</label>
+        <div className="input-wrapper">
+          <input 
+            type="text" 
+            className="input-base" 
+            placeholder="********" 
+          />
+        </div>
       </div>
     </div>
   );
