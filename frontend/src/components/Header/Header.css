@@ -1,0 +1,54 @@
+/* src/components/Header/Header.css */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  height: 64px;
+  background-color: #CBDDE9; 
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  font-weight: 700;
+  color: #0f3057;
+  font-size: 1.2rem;
+}
+
+.actionsGroup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.iconButton {
+  background-color: transparent;
+  color: #215A8E;
+  border: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease, transform 0.1s ease, background-color 0.2s ease;
+  border-radius: 8px;
+}
+
+.iconButton:hover {
+  color: #174066; /* Ícone fica ligeiramente mais escuro ao passar o mouse */
+  /* Feedback visual de usabilidade (Opcional, mas recomendado) */
+  background-color: rgba(33, 90, 142, 0.1); 
+}
+
+.iconButton:active {
+  transform: scale(0.90); /* Efeito de "clique" físico */
+}

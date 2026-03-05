@@ -1,4 +1,7 @@
 import { useRef, useState } from "react";
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { MainLayout } from "./layouts/MainLayout";
+import InputPage from "./pages/input/input";
 
 export default function App() {
   const [numbers, setNumbers] = useState([]);
@@ -40,7 +43,17 @@ export default function App() {
   }
 
   return (
-    <div className="bg-gradient" style={{ padding: 24, fontFamily: "system-ui" }}>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<InputPage></InputPage>} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+    
+
+      /*Prova de conceito
+      <div className="bg-gradient" style={{ padding: 24, fontFamily: "system-ui" }}>
       <h2>FastAPI → React (SSE)</h2>
 
       <div style={{ display: "flex", gap: 8 }}>
@@ -82,6 +95,6 @@ export default function App() {
           />
         </div>
       </div>
-    </div>
+    </div>*/
   );
 }
