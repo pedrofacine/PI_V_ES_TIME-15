@@ -37,28 +37,25 @@ export default function InputPage() {
                         <label className="input-label">Imagem de referência (opcional)</label>
                         <div className="input-wrapper">
                             
-                            {/* 1. O Ícone permanece absoluto via CSS da classe .input-icon */}
                             <span className="input-icon" style={{ display: 'flex', alignItems: 'center', zIndex: 1 }}>
                                 <Image size={18} /> 
                             </span> 
 
-                            {/* 2. O input real de arquivo fica completamente invisível */}
                             <input
-                                id="image-upload" /* ID crucial para a conexão com o Label */
+                                id="image-upload"
                                 type="file" 
                                 accept="image/*" 
                                 style={{ display: 'none' }} 
                             />
 
-                            {/* 3. O Label atua como o input falso (Falso Input) */}
                             <label
-                                htmlFor="image-upload" /* Clicar aqui aciona o input escondido acima */
+                                htmlFor="image-upload"
                                 className="input-base with-icon"
                                 style={{ 
                                     display: 'flex', 
                                     alignItems: 'center', 
                                     cursor: 'pointer', 
-                                    color: 'var(--color-input-placeholder)', /* Cor de placeholder para simular input vazio */
+                                    color: 'var(--color-input-placeholder)',
                                     margin: 0,
                                     fontWeight: 400
                                 }}

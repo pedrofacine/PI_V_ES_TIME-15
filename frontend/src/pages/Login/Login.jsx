@@ -1,6 +1,7 @@
 import "./Login.css"
 import logo from "../../assets/logo.png"
 import { useState } from "react"
+import { Lock, Mail } from "lucide-react"
 
 export default function Login({ onSignUpClick }) {
 
@@ -24,7 +25,7 @@ export default function Login({ onSignUpClick }) {
 
   return (
     <div className="login-page bg-gradient">
-      <div className="login-card">
+      <div className="white-container">
 
         <img src={logo} className="login-logo" alt="SmartScout" />
 
@@ -35,9 +36,11 @@ export default function Login({ onSignUpClick }) {
           <div className="input-group">
             <label className="input-label">E-mail</label>
             <div className="input-wrapper">
+              <span className="input-icon"><Mail/></span>
               <input
                 type="email"
-                className="input-base"
+                className="input-base with-icon"
+                placeholder="seu-email@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -47,9 +50,11 @@ export default function Login({ onSignUpClick }) {
           <div className="input-group">
             <label className="input-label">Senha</label>
             <div className="input-wrapper">
+              <span className="input-icon"><Lock/></span>
               <input
                 type="password"
-                className="input-base"
+                className="input-base with-icon"
+                placeholder="Digite sua senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

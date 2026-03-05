@@ -12,6 +12,12 @@ export default function App() {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<InputPage></InputPage>} />
         </Route>
+        <Route path="/login">
+          <Route index element={<Login/>} />
+        </Route>
+        <Route path="/signup">
+          <Route index element={<SignUp/>} />
+        </Route>
       </Routes>
     </BrowserRouter>
     

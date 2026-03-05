@@ -1,6 +1,7 @@
 import "./SignUp.css"
 import logo from "../../assets/logo.png"
 import { useState } from "react"
+import { Lock, LockKeyhole, Mail, User } from "lucide-react"
 
 export default function SignUp({ onLoginClick }) {
   const [firstName, setFirstName] = useState("")
@@ -17,7 +18,7 @@ export default function SignUp({ onLoginClick }) {
 
   return (
     <div className="signup-page bg-gradient">
-      <div className="signup-card">
+      <div className="white-container">
 
         <img src={logo} className="signup-logo" alt="SmartScout" />
 
@@ -29,10 +30,11 @@ export default function SignUp({ onLoginClick }) {
             <div className="input-group">
               <label className="input-label">Nome</label>
               <div className="input-wrapper">
+                <span className="input-icon"><User/></span> 
                 <input
                   type="text"
-                  placeholder=""
-                  className="input-base"
+                  placeholder="Digite seu nome"
+                  className="input-base with-icon"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                 />
@@ -44,7 +46,7 @@ export default function SignUp({ onLoginClick }) {
               <div className="input-wrapper">
                 <input
                   type="text"
-                  placeholder=""
+                  placeholder="Digite seu sobrenome"
                   className="input-base"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
@@ -56,10 +58,11 @@ export default function SignUp({ onLoginClick }) {
           <div className="input-group">
             <label className="input-label">E-mail</label>
             <div className="input-wrapper">
+              <span className="input-icon"><Mail/></span> 
               <input
                 type="email"
                 placeholder="seu-email@email.com"
-                className="input-base"
+                className="input-base with-icon"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -70,10 +73,11 @@ export default function SignUp({ onLoginClick }) {
             <div className="input-group">
               <label className="input-label">Senha</label>
               <div className="input-wrapper">
+                <span className="input-icon"><Lock/></span> 
                 <input
                   type="password"
-                  placeholder=""
-                  className="input-base"
+                  placeholder="Digite sua senha"
+                  className="input-base with-icon"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -83,10 +87,11 @@ export default function SignUp({ onLoginClick }) {
             <div className="input-group">
               <label className="input-label">Confirmar Senha</label>
               <div className="input-wrapper">
+                <span className="input-icon"><LockKeyhole/></span> 
                 <input
                   type="password"
-                  placeholder=""
-                  className="input-base"
+                  placeholder="Confirme sua senha"
+                  className="input-base with-icon"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
