@@ -21,7 +21,7 @@ export default function SignUp({ onLoginClick }) {
 
         <img src={logo} className="signup-logo" alt="SmartScout" />
 
-        <h2 className="signup-title">Registe-se</h2>
+        <h2 className="signup-title">Registre-se</h2>
 
         <form className="signup-form" onSubmit={handleSignUp}>
 

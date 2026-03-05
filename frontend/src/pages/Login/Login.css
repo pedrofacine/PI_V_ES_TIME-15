@@ -74,3 +74,10 @@
   color: var(--color-brand-dark, #1C5287);
   text-decoration: underline;
 }
+
+.login-error {
+  color: #FF5449;
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: -0.3rem;
+}

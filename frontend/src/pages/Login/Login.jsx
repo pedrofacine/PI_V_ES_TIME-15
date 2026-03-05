@@ -1,7 +1,27 @@
 import "./Login.css"
 import logo from "../../assets/logo.png"
+import { useState } from "react"
 
 export default function Login({ onSignUpClick }) {
+
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+
+  const handleLogin = (e) => {
+    e.preventDefault()
+
+    if (!email || !password) {
+      setError("Preencha e-mail e senha.")
+      return
+    }
+
+    setError("")
+    console.log("Login:", email, password)
+
+    // aqui depois entra a lógica de login
+  }
+
   return (
     <div className="login-page bg-gradient">
       <div className="login-card">
@@ -10,15 +30,16 @@ export default function Login({ onSignUpClick }) {
 
         <h2 className="login-title">Login</h2>
 
-        <form className="login-form">
+        <form className="login-form" onSubmit={handleLogin}>
 
           <div className="input-group">
             <label className="input-label">E-mail</label>
             <div className="input-wrapper">
               <input
                 type="email"
-                placeholder=""
                 className="input-base"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
           </div>
@@ -28,22 +49,38 @@ export default function Login({ onSignUpClick }) {
             <div className="input-wrapper">
               <input
                 type="password"
-                placeholder=""
                 className="input-base"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
           </div>
+
+          {error && <p className="login-error">{error}</p>}
 
           <a href="#" className="forgot-password">
             Esqueceu a senha?
           </a>
 
-          <button className="btn btn-primary login-button">
+          <button
+            type="submit"
+            className="btn btn-primary login-button"
+          >
             Entrar
           </button>
 
           <p className="create-account">
-            Ainda não possui conta? <a href="#" onClick={(e) => { e.preventDefault(); onSignUpClick(); }} className="signup-link">Criar conta</a>
+            Ainda não possui conta?{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault()
+                onSignUpClick()
+              }}
+              className="signup-link"
+            >
+              Criar conta
+            </a>
           </p>
 
         </form>
