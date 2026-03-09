@@ -1,15 +1,16 @@
 import "./Login.css"
 import logo from "../../assets/logo.png"
-import { useState } from "react"
+import { SyntheticEvent, useState } from "react"
 import { Lock, Mail } from "lucide-react"
+import { Link } from "react-router-dom"
 
-export default function Login({ onSignUpClick }) {
+export default function Login() {
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
 
-  const handleLogin = (e) => {
+  const handleLogin = (e: SyntheticEvent) => {
     e.preventDefault()
 
     if (!email || !password) {
@@ -76,16 +77,9 @@ export default function Login({ onSignUpClick }) {
 
           <p className="create-account">
             Ainda não possui conta?{" "}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault()
-                onSignUpClick()
-              }}
-              className="signup-link"
-            >
+            <Link to="/signup" className="login-link">
               Criar conta
-            </a>
+            </Link>
           </p>
 
         </form>

@@ -1,16 +1,17 @@
 import "./SignUp.css"
 import logo from "../../assets/logo.png"
-import { useState } from "react"
+import { SyntheticEvent, useState } from "react"
 import { Lock, LockKeyhole, Mail, User } from "lucide-react"
+import { Link } from "react-router-dom"
 
-export default function SignUp({ onLoginClick }) {
+export default function SignUp() {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
-  const handleSignUp = (e) => {
+  const handleSignUp = (e: SyntheticEvent) => {
     e.preventDefault()
     // Lógica de registro aqui
     console.log("SignUp:", firstName, lastName, email, password)
@@ -111,7 +112,10 @@ export default function SignUp({ onLoginClick }) {
           </button>
 
           <p className="have-account">
-            Já possui conta? <a href="#" onClick={(e) => { e.preventDefault(); onLoginClick(); }} className="login-link">Entrar</a>
+            Já possui conta?{" "} 
+            <Link to="/login" className="login-link">
+              Entrar
+            </Link>
           </p>
 
         </form>

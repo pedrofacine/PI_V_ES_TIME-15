@@ -6,6 +6,7 @@ export default function InputPage() {
     // Refs
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
+    const [refNumber, setRefNumber] = useState<number | string>("");
 
     // Estados
     const [imageFile, setImageFile] = useState<File | null>(null); 
@@ -82,6 +83,23 @@ export default function InputPage() {
         }
     };
 
+    const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+
+        //permite o campo ficar vazio para deletar
+        if (value === "") {
+            setRefNumber("");
+            return;
+        }
+
+        const num = parseInt(value, 10);
+
+        //so atualiza se estiver no intervalo desejado
+        if (num >= 1 && num <= 999) {
+            setRefNumber(num);
+        }
+    };
+
     return (
         <div className="page-container bg-gradient">
             <div className="white-container">
@@ -134,12 +152,21 @@ export default function InputPage() {
                 {/* Container dos Inputs Auxiliares */}
                 <div className="inputs-row">
                     <div className="input-group" style={{ flex: 1, textAlign: 'left' }}>
-                        <label className="input-label">Número de referência (opcional)</label>
+                        <label className="input-label">Número de referência (0-999)</label>
                         <div className="input-wrapper">
                             <input 
                                 type="number" 
                                 className="input-base" 
                                 placeholder="Ex: 10" 
+                                min="1"
+                                max="999"
+                                value={refNumber}
+                                onChange={handleNumberChange}
+                                onKeyDown={(e) => {
+                                    if (["e", "E", "+", "-", "."].includes(e.key)) {
+                                        e.preventDefault();
+                                    }
+                                }}
                             />
                         </div>
                     </div>
