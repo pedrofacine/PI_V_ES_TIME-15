@@ -1,6 +1,27 @@
+import { useState } from "react";
 import { ArrowRight, Image, VideoIcon } from "lucide-react";
 
 export default function InputPage() {
+    // criar o estado para o número
+    const [refNumber, setRefNumber] = useState("");
+
+    const handleNumberChange = (e) => {
+        const value = e.target.value;
+
+        //permite o campo ficar vazio para deletar
+        if (value === "") {
+            setRefNumber("");
+            return;
+        }
+
+        const num = parseInt(value, 10);
+
+        //so atualiza se estiver no intervalo desejado
+        if (num >= 1 && num <= 999) {
+            setRefNumber(num);
+        }
+    };
+
     return (
         <div className="page-container bg-gradient">
             <div className="white-container">
@@ -21,14 +42,22 @@ export default function InputPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem', width: '100%' }}>
-
                     <div className="input-group" style={{ flex: 1, textAlign: 'left' }}>
-                        <label className="input-label">Número de referência (opcional)</label>
+                        <label className="input-label">Número de referência (0-999)</label>
                         <div className="input-wrapper">
                             <input 
                                 type="number" 
                                 className="input-base" 
                                 placeholder="Ex: 10" 
+                                min="1"
+                                max="999"
+                                value={refNumber}
+                                onChange={handleNumberChange}
+                                onKeyDown={(e) => {
+                                    if (["e", "E", "+", "-", "."].includes(e.key)) {
+                                        e.preventDefault();
+                                    }
+                                }}
                             />
                         </div>
                     </div>
@@ -36,18 +65,15 @@ export default function InputPage() {
                     <div className="input-group" style={{ flex: 1, textAlign: 'left' }}>
                         <label className="input-label">Imagem de referência (opcional)</label>
                         <div className="input-wrapper">
-                            
                             <span className="input-icon" style={{ display: 'flex', alignItems: 'center', zIndex: 1 }}>
                                 <Image size={18} /> 
                             </span> 
-
                             <input
                                 id="image-upload"
                                 type="file" 
                                 accept="image/*" 
                                 style={{ display: 'none' }} 
                             />
-
                             <label
                                 htmlFor="image-upload"
                                 className="input-base with-icon"
@@ -62,7 +88,6 @@ export default function InputPage() {
                             >
                                 Selecionar imagem
                             </label>
-
                         </div>
                     </div>
                 </div>
