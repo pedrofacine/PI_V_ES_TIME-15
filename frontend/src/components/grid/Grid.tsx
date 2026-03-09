@@ -1,9 +1,14 @@
+import React from 'react';
+import './Grid.css';
 
-export function Grid(){
+interface GridProps {
+    children: React.ReactNode;
+}
 
+export function Grid({ children }: GridProps) {
     return (
-        <div className="grid">
-
+        <div className="generic-grid">
+            {children}
         </div>
-    )
+    );
 }

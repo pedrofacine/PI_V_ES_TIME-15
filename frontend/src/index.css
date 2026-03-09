@@ -56,6 +56,13 @@ html, body {
   transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
+.btn.icon {
+  padding: 0.75rem 1.5rem; 
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .btn:active {
   transform: scale(0.97);
 }
@@ -179,4 +186,12 @@ html, body {
   color: #1E293B; 
 
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.white-container.big {
+  max-width: 1800px;
+  width: 95%;
+  min-height: 85vh;
+  justify-content: flex-start;
+  padding: 2rem 3rem;
 }

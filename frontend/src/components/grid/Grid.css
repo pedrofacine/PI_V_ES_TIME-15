@@ -1,0 +1,21 @@
+.generic-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /*ajustar minmax*/
+    gap: 1.5rem;
+    width: 100%;
+    padding: 1rem 0;
+    border-bottom: 5px;
+    border-color: black;
+}
+
+.clips-actions-container {
+    width: 100%;
+    display: flex;
+    justify-content: center; 
+    align-items: center;
+    gap: 1rem;
+    padding-top: 1.5rem;
+    margin-top: 1rem; 
+    border-top: 2px solid #CBDDE9; 
+}
+

@@ -3,6 +3,7 @@ import SignUp from './pages/SignUp/SignUp';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MainLayout } from "./layouts/MainLayout";
 import InputPage from "./pages/input/input";
+import ProcessingClipsPage from './pages/processing-clips/processingClips';
 
 export default function App() {
 
@@ -17,6 +18,9 @@ export default function App() {
         </Route>
         <Route path="/signup">
           <Route index element={<SignUp/>} />
+        </Route>
+        <Route path='/processing-clips' element={<MainLayout/>}>
+          <Route index element={<ProcessingClipsPage/>} />
         </Route>
       </Routes>
     </BrowserRouter>
