@@ -8,6 +8,25 @@ import { DownloadCloud, RefreshCw } from "lucide-react";
 export default function ProcessingClipsPage() {
     const mockClips: ClipData[] = [
         { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
         { id: '2', title: 'CLIP#002', status: 'generating', progress: 45 },
         { id: '3', title: 'CLIP#003', status: 'error' }
     ];  

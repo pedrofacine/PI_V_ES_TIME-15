@@ -31,13 +31,14 @@
 
 /* Card Individual - Fundo Base Azul Claro do Protótipo */
 .clip-card {
-    background-color: #CBDDE9; /* A cor azul clara que queria */
-    border-radius: 8px; /* Borda menos arredondada para condizer com o figma */
+    background-color: #CBDDE9;
+    border-radius: 8px;
     overflow: hidden;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     flex-direction: column;
-    aspect-ratio: 16 / 10; /* Proporção mais quadrada como no protótipo */
+    aspect-ratio: 16 / 10; 
+    width: 100%; /* Ocupa toda a largura da célula da Grid */
 }
 
 .clip-card:hover {
