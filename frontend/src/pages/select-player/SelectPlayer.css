@@ -35,7 +35,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.3); /* Overlay levemente escurecido */
+    background-color: rgba(0, 0, 0, 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -44,66 +44,67 @@
 
 .modal-card {
     background-color: white;
-    padding: 40px;
+    padding: 60px;
     border-radius: 25px;
-    width: 450px;
+    width: 600px;
     text-align: center;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
 }
 
 .modal-title {
-    font-size: 22px;
-    margin-bottom: 20px;
+    font-size: 32px;
+    margin-bottom: 40px;
     color: #333;
 }
 
 .preview-image-container {
     display: inline-block;
     border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 8px;
     overflow: hidden;
-    margin-bottom: 30px;
+    margin-bottom: 50px;
 }
 
 .preview-image-container img {
-    width: 200px;
-    height: 140px;
+    width: 300px;
+    height: 210px;
     display: block;
     object-fit: cover;
 }
 
 .player-id-label {
-    background-color: #0d47a1; /* Azul escuro da imagem */
+    background-color: #0d47a1;
     color: white;
-    font-size: 11px;
-    padding: 3px 0;
+    font-size: 14px;
+    padding: 8px 0;
+    text-transform: lowercase;
 }
 
 .modal-footer-buttons {
     display: flex;
     justify-content: center;
-    gap: 12px;
+    gap: 20px;
 }
 
 .btn-modal-cancel, .btn-modal-confirm {
     border: none;
-    border-radius: 12px;
-    padding: 10px 18px;
+    border-radius: 15px;
+    padding: 15px 25px;
     color: white;
     font-weight: 600;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 16px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
 }
 
 .btn-modal-cancel {
-    background-color: #ff5252; /* Vermelho */
+    background-color: #ff5252;
 }
 
 .btn-modal-confirm {
-    background-color: #2e79b8; /* Azul */
+    background-color: #2e79b8;
 }
 
 .btn-modal-cancel:hover, .btn-modal-confirm:hover {
