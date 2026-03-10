@@ -4,23 +4,32 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MainLayout } from "./layouts/MainLayout";
 import InputPage from "./pages/input/input";
 import ProcessingClipsPage from './pages/processing-clips/processingClips';
+import SelectPlayerPage from "./pages/select-player/SelectPlayerPage";
 
 export default function App() {
 
   return (
     <BrowserRouter>
       <Routes>
+
         <Route path="/" element={<MainLayout />}>
           <Route index element={<InputPage></InputPage>} />
         </Route>
+
         <Route path="/login">
           <Route index element={<Login/>} />
         </Route>
+
         <Route path="/signup">
           <Route index element={<SignUp/>} />
         </Route>
+
         <Route path='/processing-clips' element={<MainLayout/>}>
           <Route index element={<ProcessingClipsPage/>} />
+        </Route>
+
+        <Route path="/select-player" element={<MainLayout/>}>
+              <Route index element={<SelectPlayerPage/>} />
         </Route>
       </Routes>
     </BrowserRouter>
