@@ -3,7 +3,7 @@ import SignUp from './pages/SignUp/SignUp';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MainLayout } from "./layouts/MainLayout";
 import InputPage from "./pages/input/input";
-import ProcessingClipsPage from './pages/processing-clips/processingClips';
+import ProcessingClipsPage from './pages/processing-clips/ProcessingClips';
 import SelectPlayerPage from "./pages/select-player/SelectPlayerPage";
 
 export default function App() {

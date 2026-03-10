@@ -26,7 +26,7 @@ html, body {
   height: 100vh;
   background-color: #F1F5F9;
   color: #1E293B;
-  overflow: hidden;
+  
 }
 
 #root {
@@ -171,12 +171,14 @@ html, body {
   padding: 2rem;
 }
 
+
 .white-container {
   background-color: #FFFFFF;
   width: 100%;
   max-width: 720px;
   border-radius: 32px;
   padding: 3rem 2rem;
+  
 
   display: flex;
   flex-direction: column;
@@ -186,6 +188,8 @@ html, body {
   color: #1E293B; 
 
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+
+  margin: auto;
 }
 
 .white-container.big {

@@ -4,8 +4,15 @@
 
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+
+
   padding: 2rem 1rem;
+
+  box-sizing: border-box;
+
+  overflow-y: auto; 
+  overflow-x: hidden;
 }
 
 .login-card {
