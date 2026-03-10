@@ -19,6 +19,13 @@ export default function SelectPlayerPage() {
   ];
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleAdvance = () => {
+    if (selectedPlayer) {
+      setIsModalOpen(true);
+    }
+  };
 
   return (
     <div className="page-container bg-gradient">
@@ -26,7 +33,7 @@ export default function SelectPlayerPage() {
 
         <div className="processing-header">
           <h2 className="processing-title">
-            Buscando jogadores - Analisando 1º tempo
+            Buscando o jogador nº {"<Número digitado pelo usuário>"}
           </h2>
 
           <div className="progress-bar-container">
@@ -56,12 +63,36 @@ export default function SelectPlayerPage() {
           <button
             className="btn btn-primary"
             disabled={!selectedPlayer}
+            onClick={handleAdvance}
           >
             Avançar →
           </button>
         </div>
-
       </div>
+
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h2 className="modal-title">Esse é o seu jogador?</h2>
+            
+            <div className="modal-player-preview">
+              <div className="preview-image-container">
+                 <img src={placeholderImg} alt="Preview" />
+                 <div className="player-id-label">{"<id do jogador>"}</div>
+              </div>
+            </div>
+
+            <div className="modal-footer-buttons">
+              <button className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>
+                Não, a IA errou ✖
+              </button>
+              <button className="btn-modal-confirm" onClick={() => console.log("Prosseguir para clipes")}>
+                Sim, gerar clipes ✔
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
