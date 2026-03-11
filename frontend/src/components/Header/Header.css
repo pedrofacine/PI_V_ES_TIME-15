@@ -1,25 +1,16 @@
-/* src/components/Header/Header.css */
-
 .header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0 24px;
-  height: 64px;
-  background-color: #CBDDE9; 
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  font-family: system-ui, -apple-system, sans-serif;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: #dfe8f2;
 }
 
 .brand {
-  display: flex;
-  align-items: center;
   text-decoration: none;
+  font-size: 2rem;
   font-weight: 700;
-  color: #0f3057;
-  font-size: 1.2rem;
+  color: #183153;
 }
 
 .actionsGroup {
@@ -29,26 +20,198 @@
 }
 
 .iconButton {
-  background-color: transparent;
-  color: #215A8E;
   border: none;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  background: transparent;
   cursor: pointer;
-  padding: 0;
-  transition: color 0.2s ease, transform 0.1s ease, background-color 0.2s ease;
-  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #183153;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .iconButton:hover {
-  color: #174066; /* Ícone fica ligeiramente mais escuro ao passar o mouse */
-  /* Feedback visual de usabilidade (Opcional, mas recomendado) */
-  background-color: rgba(33, 90, 142, 0.1); 
+  transform: scale(1.05);
+  opacity: 0.9;
 }
 
-.iconButton:active {
-  transform: scale(0.90); /* Efeito de "clique" físico */
+/* Overlay escurecido */
+.profileOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 13, 24, 0.62);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+/* Modal centralizado */
+.profileModal {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  background: linear-gradient(180deg, #151a28 0%, #101522 100%);
+  color: #ffffff;
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: modalFadeUp 0.22s ease;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.closeModalButton {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: #c9d1df;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.closeModalButton:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.profileTop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+  margin-top: 10px;
+}
+
+.profileAvatar {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4d79b3 0%, #6c94c7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(76, 120, 178, 0.35);
+  margin-bottom: 16px;
+}
+
+.profileName {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.profileSubtitle {
+  margin: 8px 0 0;
+  color: #aab4c8;
+  font-size: 0.98rem;
+}
+
+.profileInfoCard {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 20px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.profileInfoRow {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #dfe6f3;
+}
+
+.profileInfoRow svg {
+  margin-top: 2px;
+  color: #8ea6cb;
+  flex-shrink: 0;
+}
+
+.profileInfoRow div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.infoLabel {
+  font-size: 0.82rem;
+  color: #9eabc3;
+}
+
+.profileInfoRow strong {
+  font-size: 0.98rem;
+  color: #ffffff;
+  word-break: break-word;
+}
+
+.profileActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.logoutButton,
+.secondaryButton {
+  width: 100%;
+  height: 54px;
+  border: none;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+}
+
+.logoutButton {
+  background: linear-gradient(180deg, #f04452 0%, #db2f3d 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(240, 68, 82, 0.28);
+}
+
+.logoutButton:hover {
+  transform: translateY(-1px);
+  opacity: 0.97;
+}
+
+.secondaryButton {
+  background: #353b4a;
+  color: #d9dfeb;
+}
+
+.secondaryButton:hover {
+  background: #41485a;
+  transform: translateY(-1px);
+}
+
+@keyframes modalFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
