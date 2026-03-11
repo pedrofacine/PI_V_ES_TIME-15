@@ -31,11 +31,11 @@
 
 .signup-logo {
   width: 90px;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 
 .signup-title {
-  margin-bottom: 2rem;
+  margin-bottom: 0.3rem;
   color: #1f2937;
 }
 
@@ -69,11 +69,11 @@
 }
 
 .password-requirements li {
-  margin: 0.2rem 0;
+  margin: 0.1rem 0;
 }
 
 .signup-button {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   width: 140px;
   align-self: center;
 }
@@ -81,7 +81,7 @@
 .have-account {
   font-size: 0.75rem;
   text-align: center;
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
   color: #334155;
 }
 
