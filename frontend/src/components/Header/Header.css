@@ -4,6 +4,10 @@
   justify-content: space-between;
   padding: 20px 24px;
   background: #dfe8f2;
+  height: 150px;
+  min-height: 150px;
+  max-height: 150px;
+  flex-shrink: 0;
 }
 
 .brand {
@@ -11,6 +15,16 @@
   font-size: 2rem;
   font-weight: 700;
   color: #183153;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.brand-logo {
+  height: 150px;
+  width: auto;
+  object-fit: contain;
+  max-height: 180px;
 }
 
 .actionsGroup {

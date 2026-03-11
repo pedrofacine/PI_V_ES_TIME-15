@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import logoSmartScout from '../../assets/logo-smartscout.png';
 import {
   SquarePlay,
   CircleUserRound,
@@ -57,7 +58,7 @@ export function Header() {
     <>
       <header className="header">
         <Link to="/" className="brand">
-          SMARTSCOUT
+          <img src={logoSmartScout} alt="SmartScout" className="brand-logo" />
         </Link>
 
         <div className="actionsGroup">
@@ -66,7 +67,7 @@ export function Header() {
             aria-label="Iniciar Análise"
             title="Iniciar Análise"
           >
-            <SquarePlay size={32} />
+            <SquarePlay size={40} />
           </button>
 
           <button
@@ -75,7 +76,7 @@ export function Header() {
             title="Perfil"
             onClick={handleOpenProfileModal}
           >
-            <CircleUserRound size={32} />
+            <CircleUserRound size={40} />
           </button>
         </div>
       </header>

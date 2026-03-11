@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Grid } from "../../components/grid/Grid";
 import placeholderImg from "../../assets/placeholder.png";
 import "./SelectPlayer.css";
@@ -20,6 +21,7 @@ export default function SelectPlayerPage() {
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const handleAdvance = () => {
     if (selectedPlayer) {
@@ -86,7 +88,7 @@ export default function SelectPlayerPage() {
               <button className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>
                 Não, a IA errou ✖
               </button>
-              <button className="btn-modal-confirm" onClick={() => console.log("Prosseguir para clipes")}>
+              <button className="btn-modal-confirm" onClick={() => { setIsModalOpen(false); navigate("/processing-videos"); }}>
                 Sim, gerar clipes ✔
               </button>
             </div>
