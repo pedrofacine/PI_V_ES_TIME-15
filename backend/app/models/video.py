@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
-from ..models import User, ProcessingJob
+from app.models.user import User
+from app.models.processingJob import ProcessingJob
 
 
 class Video(SQLModel, table=True):

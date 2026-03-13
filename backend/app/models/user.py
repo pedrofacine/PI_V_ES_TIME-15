@@ -2,8 +2,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
+from app.models.video import Video
 
-from ..models import Video
 
 class User(SQLModel, table=True):
     __tablename__ = "users"

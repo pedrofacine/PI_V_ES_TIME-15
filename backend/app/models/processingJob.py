@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
-from models import Video, Clip
+from app.models.video import Video
+
 
 class ProcessingJob(SQLModel, table=True):
     __tablename__ = "processing_jobs"

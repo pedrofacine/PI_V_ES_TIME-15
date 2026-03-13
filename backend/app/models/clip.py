@@ -2,8 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
-
-from ..models import ProcessingJob
+from app.models.processingJob import ProcessingJob
 
 class Clip(SQLModel, table=True):
     __tablename__ = "clips"
