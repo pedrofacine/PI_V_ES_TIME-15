@@ -7,6 +7,8 @@ export default function InputPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
     const [refNumber, setRefNumber] = useState<number | string>("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [uploadError, setUploadError] = useState("");
 
     // Estados
     const [imageFile, setImageFile] = useState<File | null>(null); 
@@ -99,6 +101,41 @@ export default function InputPage() {
             setRefNumber(num);
         }
     };
+
+    const handleInitAnalisys = async () => {
+        if(!videoFile){ 
+            setUploadError("É necessário ter feito upload de um video para iniciar a análise.")    
+            return;
+        }
+
+        setIsLoading(true);
+        setUploadError("");
+
+        const formData = new FormData();
+        formData.append("file", videoFile);
+
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_PATH}/api/videos/upload`, {
+                method: "POST",
+                body: formData
+            })
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                setUploadError(`Erro ao fazer upload do vídeo: ${errorData.detail || res.statusText}`);
+            } else {
+                const data = await res.json();
+                console.log("Upload com sucesso! ID:", data.transaction_id);
+                
+                // redirecionar a tela de seleção de jogador
+            }
+
+            
+        }catch(error){
+            setIsLoading(false)
+            console.error(error)
+        }
+    }
 
     return (
         <div className="page-container bg-gradient">
@@ -206,10 +243,16 @@ export default function InputPage() {
                     </div>
                 </div>
 
-                <button className="btn btn-primary btn-analyze">
+                <button className="btn btn-primary btn-analyze" onClick={handleInitAnalisys}>
                         Iniciar análise 
                         <ArrowRight size={20} className="btn-analyze-icon" />
                 </button>
+
+                {uploadError && (
+                    <span className="error-message" role="alert">
+                        {uploadError}
+                    </span>
+                )}
             </div>
         </div>
     );
