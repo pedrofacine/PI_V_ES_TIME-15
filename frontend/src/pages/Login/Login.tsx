@@ -65,7 +65,9 @@ export default function Login() {
           {error && <p className="login-error">{error}</p>}
 
           <a href="#" className="forgot-password">
-            Esqueceu a senha?
+            <Link to="/reset-password" className="login-link">
+              Esqueceu a senha?
+            </Link>
           </a>
 
           <button
