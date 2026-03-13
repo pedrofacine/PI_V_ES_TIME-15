@@ -1,7 +1,9 @@
 import os
 import shutil
 import uuid
-from fastapi import APIRouter, UploadFile, File, status, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, UploadFile, File, status, HTTPException, Form
 from pydantic import BaseModel
 
 router = APIRouter(
@@ -19,14 +21,34 @@ class UploadResponse(BaseModel):
 
 
 @router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
-async def upload(file: UploadFile = File(...)):
+async def upload(
+        file: UploadFile = File(...),
+        ref_number: Optional[int] = Form(default=None),
+        ref_image: Optional[UploadFile] = File(default=None)
+):
+    print(f"--- Novo Upload Recebido ---")
+    print(f"Vídeo: {file.filename}")
+    print(f"Número de Referência: {ref_number}")
+    if ref_image:
+        allowed_image_extensions = {".png", ".jpg", ".jpeg"}
+        image_ext = os.path.splitext(ref_image.filename)[1].lower()
+        if(image_ext) not in allowed_image_extensions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Formato de imagem não suportado. Apenas {allowed_image_extensions} são permitidos."
+            )
+        print(f"Imagem de Referência recebida: {ref_image.filename}")
+    else:
+        print("Nenhuma imagem de referência enviada.")
+    print(f"----------------------------")
+
     allowed_extensions = {".mp4", ".avi"}  # validação de formato
     file_ext = os.path.splitext(file.filename)[1].lower()
 
     if file_ext not in allowed_extensions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Formato não suportado. Apenas {allowed_extensions} são permitidos."
+            detail=f"Formato de video não suportado. Apenas {allowed_extensions} são permitidos."
         )
 
     transaction_id = uuid.uuid4()

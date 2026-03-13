@@ -113,6 +113,10 @@ export default function InputPage() {
 
         const formData = new FormData();
         formData.append("file", videoFile);
+        if(imageFile) formData.append("ref_image", imageFile);
+        if (refNumber !== "") {
+            formData.append("ref_number", refNumber.toString());
+        }
 
         try {
             const res = await fetch(`${import.meta.env.VITE_API_PATH}/api/videos/upload`, {
