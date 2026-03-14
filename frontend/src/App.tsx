@@ -7,6 +7,7 @@ import ProcessingClipsPage from './pages/processing-clips/ProcessingClips';
 import SelectPlayerPage from "./pages/select-player/SelectPlayerPage";
 import ProcessingVideosPage from "./pages/processing-videos/ProcessingVideosPage";
 import ResetPassword from "./pages/resetPassword/resetPassword";
+import ClipsHistory from './pages/clips-history/ClipsHistory';
 
 export default function App() {
 
@@ -41,6 +42,11 @@ export default function App() {
         <Route path="/reset-password">
           <Route index element={<ResetPassword/>} />
         </Route>
+
+        <Route path="/clips-history" element={<MainLayout/>}>
+          <Route index element={<ClipsHistory/>} />
+        </Route>
+        
       </Routes>
     </BrowserRouter>
     
