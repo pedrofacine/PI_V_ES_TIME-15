@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
-from app.models.user import User
-from app.models.processingJob import ProcessingJob
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.processingJob import ProcessingJob
 
 
 class Video(SQLModel, table=True):
@@ -17,6 +19,5 @@ class Video(SQLModel, table=True):
     file_size_mb: Optional[float] = None
     uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Relacionamentos
-    user: Optional[User] = Relationship(back_populates="videos")
+    user: Optional["User"] = Relationship(back_populates="videos")
     jobs: List["ProcessingJob"] = Relationship(back_populates="video")

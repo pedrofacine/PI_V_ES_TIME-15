@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
-from app.models.video import Video
+
+if TYPE_CHECKING:
+    from app.models.video import Video
 
 
 class User(SQLModel, table=True):
@@ -16,5 +18,4 @@ class User(SQLModel, table=True):
     max_clips_allowed: int = Field(default=20)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Relacionamentos
     videos: List["Video"] = Relationship(back_populates="user")
