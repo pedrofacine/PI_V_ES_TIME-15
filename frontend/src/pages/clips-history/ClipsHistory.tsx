@@ -5,11 +5,12 @@ import './ClipsHistory.css'
 import placeholderImg from '../../assets/placeholder.png';
 import { Search, ChevronDown } from "lucide-react";
 
+type ClipWithDate = ClipData & { generatedAt: string };
+
 export default function ClipsHistory() {
     const [search, setSearch] = useState("");
     const [sortBy, setSortBy] = useState<"recent" | "oldest">("recent");
-
-    type ClipWithDate = ClipData & { generatedAt: string };
+    const [modalSession, setModalSession] = useState<{ date: string, clips: ClipWithDate[] } | null>(null);
 
     const mockClips: ClipWithDate[] = [
         { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '27/08/2025 - 10:41' },
@@ -88,20 +89,44 @@ export default function ClipsHistory() {
                                     <span className="clip-group-date">{date}</span>
                                 </div>
 
-                                <Grid className="history-grid">
-                                    {clips.map(clip => (
+                                <Grid>
+                                    {clips.slice(0, 5).map(clip => (
                                         <ClipCard key={clip.id} clip={clip} />
                                     ))}
+                                    <div
+                                        className="see-all-card"
+                                        onClick={() => setModalSession({ date, clips })}
+                                    >
+                                        <span>Ver Todos</span>
+                                        <span className="see-all-count">{clips.length} clipes</span>
+                                    </div>
                                 </Grid>
                             </section>
                             {index < Object.entries(clipsByDate).length - 1 && <hr className="group-separator" />}
                         </React.Fragment>
                     ))}
                 </div>
+
                 <div className="footer-note">
                     Os clipes ficam armazenados por até 14 dias após sua geração no nosso site
                 </div>
             </div>
+
+            {modalSession && (
+                <div className="modal-overlay" onClick={() => setModalSession(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <span>Clipes gerados em: <strong>{modalSession.date}</strong></span>
+                            <button onClick={() => setModalSession(null)}>✕</button>
+                        </div>
+                        <Grid>
+                            {modalSession.clips.map(clip => (
+                                <ClipCard key={clip.id} clip={clip} />
+                            ))}
+                        </Grid>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -3,12 +3,11 @@ import './Grid.css';
 
 interface GridProps {
     children: React.ReactNode;
-    className?: string;
 }
 
-export function Grid({ children, className }: GridProps) {
+export function Grid({ children }: GridProps) {
     return (
-        <div className={`generic-grid ${className || ''}`.trim()}>
+        <div className="generic-grid">
             {children}
         </div>
     );

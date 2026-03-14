@@ -108,10 +108,27 @@
     flex: 1; 
     overflow-y: auto; 
     padding: 0 2rem 2rem 2rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.scrollable-content .grid {
+    width: 100%;
+}
+
+.scrollable-content .generic-grid {
+    overflow-y: visible;
+    overflow-x: visible;
+    flex: none;
+    padding: 0;
+    height: auto;
+    min-height: 0;
 }
 
 .clip-group {
     margin-bottom: 1.75rem;
+    width: 100%;
+    min-width: 0;
 }
 
 .clip-group-header {
@@ -127,30 +144,6 @@
     display: grid;
     grid-template-columns: repeat(5, minmax(170px, 1fr));
     gap: 1.5rem;
-}
-
-@media (max-width: 1280px) {
-    .history-grid {
-        grid-template-columns: repeat(4, minmax(170px, 1fr));
-    }
-}
-
-@media (max-width: 1024px) {
-    .history-grid {
-        grid-template-columns: repeat(3, minmax(160px, 1fr));
-    }
-}
-
-@media (max-width: 720px) {
-    .history-grid {
-        grid-template-columns: repeat(2, minmax(150px, 1fr));
-    }
-}
-
-@media (max-width: 520px) {
-    .history-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 .clip-group-header span {
@@ -169,6 +162,74 @@
     font-size: 0.85rem;
     color: #64748B;
     padding: 0 1rem 2rem;
+}
+
+.see-all-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 8px;
+    border: 2px dashed #CBDDE9;
+    cursor: pointer;
+    color: #2872A1;
+    font-weight: 600;
+    transition: background 0.2s;
+    min-height: 120px;
+}
+
+.see-all-card:hover {
+    background: #f0f7fc;
+}
+
+.see-all-count {
+    font-size: 0.85rem;
+    color: #475569;
+    font-weight: 400;
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #fff;
+    border-radius: 12px;
+    padding: 2rem;
+    width: 90%;
+    max-width: 900px;
+    max-height: 80vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+    color: #475569;
+}
+
+.modal-header button {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #475569;
+}
+
+.modal-header button:hover {
+    color: #0F172A;
 }
 
 /* Estilos mantidos conforme original */
