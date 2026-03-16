@@ -1,0 +1,137 @@
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Aplica o brilho sutil na cor base azul clara (#CBDDE9) */
+.skeleton-shimmer-light {
+    background: linear-gradient(90deg, #CBDDE9 25%, #E2EDF5 50%, #CBDDE9 75%);
+    background-size: 400% 100%;
+    animation: shimmer 2s infinite linear;
+}
+
+/* Aplica o brilho na tira inferior escura (#1C5287) */
+.skeleton-shimmer-dark {
+    background: linear-gradient(90deg, #1C5287 25%, #2565A3 50%, #1C5287 75%);
+    background-size: 400% 100%;
+    animation: shimmer 2s infinite linear;
+}
+
+/* Falso texto animado para o título */
+.skeleton-text-line {
+    width: 60%;
+    height: 12px;
+    background-color: rgba(255, 255, 255, 0.2); /* Branco transparente */
+    border-radius: 4px;
+}
+
+/* Card Individual - Fundo Base Azul Claro do Protótipo */
+.clip-card {
+    background-color: #CBDDE9;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    aspect-ratio: 16 / 10; 
+    width: 100%; /* Ocupa toda a largura da célula da Grid */
+}
+
+.clip-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Área de Mídia Principal (Onde fica o ícone de Play ou Loader) */
+.clip-card-media {
+    flex: 1; 
+    position: relative; /* Fundamental para segurar a imagem absoluta */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden; /* Corta qualquer excesso */
+}
+
+.thumbnail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Volte para 'cover'. O 'fill' vai deixar os jogadores esticados/deformados! */
+}
+
+/* Overlays para os diferentes estados (Processando, Erro, etc.) */
+.media-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+
+.media-overlay.error {
+    background: rgba(254, 226, 226, 0.9);
+    color: #EF4444;
+}
+
+.media-overlay.hover-play {
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+}
+
+.clip-card:hover .media-overlay.hover-play {
+    opacity: 1;
+}
+
+
+.clip-card-info {
+    padding: 0.5rem 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #1C5287; 
+    flex-shrink: 0;
+}
+
+.clip-title {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #FFFFFF; 
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.download-button {
+  background-color: transparent;
+  color: #FFFFFF;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease, transform 0.1s ease, background-color 0.2s ease;
+  border-radius: 8px;
+  border-color: transparent;
+}
+
+.download-button:hover {
+  background-color: #9F9F9F;
+  border-color: #9F9F9F;
+}
+
+.download-button:active {
+  transform: scale(0.90); 
+}

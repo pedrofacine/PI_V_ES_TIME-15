@@ -1,0 +1,69 @@
+/* ==========================================
+   Cabeçalho de Processamento
+========================================== */
+.processing-header {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    margin-bottom: 0.1rem;
+    text-align: left;
+}
+
+.clips-actions-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding-top: 0.5rem;
+    margin-top: auto; /* Empurra os botões sempre para o final do container */
+    border-top: 2px solid #CBDDE9;
+    background-color: #fff; /* Garante que os vídeos não apareçam por baixo se houver transparência */
+    flex-shrink: 0; /* Impede os botões de sumirem se houver muitos vídeos */
+}
+
+.processing-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #000000;
+    margin: 0;
+    text-align: center;
+}
+
+.progress-bar-container {
+    position: relative;
+    width: 100%;
+    height: 6px;
+    background-color: #E2E8F0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0; /* Inicia na esquerda */
+    height: 100%;
+    background-color: var(--color-brand-light, #2872A1);
+    border-radius: 4px;
+    transition: width 0.5s ease-in-out, left 0.5s ease-in-out; 
+}
+
+
+.progress-bar-fill.animating {
+    width: 30%;
+    animation: indeterminate-loading 1.5s infinite ease-in-out;
+}
+
+.progress-bar-fill.finished {
+    width: 100%;
+    animation: none; 
+    left: 0;        
+}
+
+@keyframes indeterminate-loading {
+    0% { left: -30%; }
+    100% { left: 100%; }
+}

@@ -1,0 +1,97 @@
+.signup-page {
+  width: 100%;
+  min-height: 100vh;
+
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+
+  padding: 2rem 1rem;
+  box-sizing: border-box;
+
+  overflow-y: auto; 
+  overflow-x: hidden;
+}
+
+.signup-card {
+  width: 100%;
+  max-width: 600px;
+
+  background: #eeeeee;
+  border-radius: 20px;
+
+  padding: 2rem;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.signup-logo {
+  width: 90px;
+  margin-bottom: 0.3rem;
+}
+
+.signup-title {
+  margin-bottom: 0.3rem;
+  color: #1f2937;
+}
+
+.signup-form {
+  width: 70%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.signup-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.signup-row .input-group {
+  flex: 1;
+}
+
+.password-requirements {
+  font-size: 0.75rem;
+  color: #334155;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.password-requirements ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  list-style-position: inside;
+}
+
+.password-requirements li {
+  margin: 0.1rem 0;
+}
+
+.signup-button {
+  margin-top: 0.5rem;
+  width: 140px;
+  align-self: center;
+}
+
+.have-account {
+  font-size: 0.75rem;
+  text-align: center;
+  margin-top: 0.5rem;
+  color: #334155;
+}
+
+.login-link {
+  color: var(--color-brand-light, #2872A1);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.login-link:hover {
+  color: var(--color-brand-dark, #1C5287);
+  text-decoration: underline;
+}

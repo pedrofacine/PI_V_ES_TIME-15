@@ -1,24 +1,29 @@
-import asyncio
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import SQLModel
 
-app = FastAPI()
+from app.database import engine
+
+import app.models.user
+import app.models.video
+import app.models.processingJob
+import app.models.clip
+
+from app.routers import videos, users
+
+app = FastAPI(title="SmartScout API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # React
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/stream")
-async def stream_numbers():
-    async def gen():
-        for i in range(1, 11):
-            yield f"data: {i}\n\n"
-            await asyncio.sleep(1)
-        yield "event: done\ndata: finished\n\n"
+@app.on_event("startup")
+def on_startup():
+    SQLModel.metadata.create_all(engine)
 
-    return StreamingResponse(gen(), media_type="text/event-stream")
+app.include_router(videos.router)
+app.include_router(users.router)
