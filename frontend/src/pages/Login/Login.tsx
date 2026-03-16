@@ -2,15 +2,17 @@ import "./Login.css"
 import logo from "../../assets/logo.png"
 import { SyntheticEvent, useState } from "react"
 import { Lock, Mail } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
+import { login } from "../../services/api"
 
 export default function Login() {
-
+  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = (e: SyntheticEvent) => {
+  const handleLogin = async (e: SyntheticEvent) => {
     e.preventDefault()
 
     if (!email || !password) {
@@ -19,9 +21,17 @@ export default function Login() {
     }
 
     setError("")
-    console.log("Login:", email, password)
-
-    // aqui depois entra a lógica de login
+    setLoading(true)
+    try {
+      const data = await login({ email: email.trim(), password })
+      localStorage.setItem("token", data.access_token)
+      localStorage.setItem("user", JSON.stringify(data.user))
+      navigate("/", { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao fazer login.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -71,8 +81,9 @@ export default function Login() {
           <button
             type="submit"
             className="btn btn-primary login-button"
+            disabled={loading}
           >
-            Entrar
+            {loading ? "Entrando..." : "Entrar"}
           </button>
 
           <p className="create-account">

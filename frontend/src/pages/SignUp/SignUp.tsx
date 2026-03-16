@@ -2,19 +2,51 @@ import "./SignUp.css"
 import logo from "../../assets/logo.png"
 import { SyntheticEvent, useState } from "react"
 import { Lock, LockKeyhole, Mail, User } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
+import { register } from "../../services/api"
 
 export default function SignUp() {
+  const navigate = useNavigate()
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const handleSignUp = (e: SyntheticEvent) => {
+  const handleSignUp = async (e: SyntheticEvent) => {
     e.preventDefault()
-    // Lógica de registro aqui
-    console.log("SignUp:", firstName, lastName, email, password)
+    setError("")
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || !confirmPassword) {
+      setError("Preencha todos os campos.")
+      return
+    }
+    if (password.length < 8) {
+      setError("A senha deve ter no mínimo 8 caracteres.")
+      return
+    }
+    if (password !== confirmPassword) {
+      setError("As senhas não coincidem.")
+      return
+    }
+
+    setLoading(true)
+    try {
+      const data = await register({
+        email: email.trim(),
+        password,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+      })
+      localStorage.setItem("token", data.access_token)
+      localStorage.setItem("user", JSON.stringify(data.user))
+      navigate("/", { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao registrar.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -107,8 +139,10 @@ export default function SignUp() {
             </ul>
           </div>
 
-          <button type="submit" className="btn btn-primary signup-button">
-            Registrar
+          {error && <p className="signup-error">{error}</p>}
+
+          <button type="submit" className="btn btn-primary signup-button" disabled={loading}>
+            {loading ? "Registrando..." : "Registrar"}
           </button>
 
           <p className="have-account">
