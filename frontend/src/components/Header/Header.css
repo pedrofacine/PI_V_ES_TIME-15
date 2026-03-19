@@ -2,11 +2,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 0 24px;
   background: #dfe8f2;
-  height: 150px;
-  min-height: 150px;
-  max-height: 150px;
+  height: 72px;
+  min-height: 72px;
+  max-height: 72px;
   flex-shrink: 0;
 }
 
@@ -21,10 +21,12 @@
 }
 
 .brand-logo {
-  height: 150px;
   width: auto;
   object-fit: contain;
-  max-height: 180px;
+  display: block;
+  max-height: 120px;
+  margin-left: -60px;
+  margin-top: 12px;
 }
 
 .actionsGroup {

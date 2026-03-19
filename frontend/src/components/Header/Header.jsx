@@ -62,13 +62,15 @@ export function Header() {
         </Link>
 
         <div className="actionsGroup">
-          <button
-            className="iconButton"
-            aria-label="Iniciar Análise"
-            title="Iniciar Análise"
+          <Link to="/clips-history">
+            <button
+              className="iconButton"
+              aria-label="Meus Clipes"
+              title="Meus Clipes"
           >
             <SquarePlay size={40} />
           </button>
+          </Link>
 
           <button
             className="iconButton"
