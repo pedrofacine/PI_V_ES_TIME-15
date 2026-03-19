@@ -4,6 +4,7 @@ import { Grid } from "../../components/grid/Grid";
 import './ProcessingClips.css'
 import placeholderImg from '../../assets/placeholder.png';
 import { DownloadCloud, RefreshCw } from "lucide-react";
+import { useState } from "react";
 
 export default function ProcessingClipsPage() {
     const navigate = useNavigate();
@@ -21,16 +22,20 @@ export default function ProcessingClipsPage() {
         { id: '10', title: 'CLIP#010', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
         { id: '11', title: 'CLIP#011', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
         { id: '12', title: 'CLIP#012', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
+        { id: '2', title: 'CLIP#002', status: 'generating', progress: 45 },
+        { id: '3', title: 'CLIP#003', status: 'error' }
     ];
+
+    const [isDone, setIsDone] = useState(false);
 
     return (
         <div className="page-container bg-gradient">
             <div className="white-container big">
                 <div className="processing-header">
-                    <h2 className="processing-title">Seus clipes estão prontos!</h2>
+                    <h2 className="processing-title">{!isDone ? "Recortando os lances do jogador escolhido...": "Os clipes estão prontos!"}</h2>
                     
                     <div className="progress-bar-container">
-                        <div className="progress-bar-fill finished" />
+                        <div className={`progress-bar-fill ${!isDone ? 'animating' : 'finished'}`} />
                     </div>
                 </div>
 
@@ -43,10 +48,10 @@ export default function ProcessingClipsPage() {
                 <div className="clips-actions-container">
                     <button className="btn icon btn-secondary" onClick={() => navigate("/select-player")}>
                         <RefreshCw size={18} />
-                        Fazer nova análise
+                        Refazer análise
                     </button>
 
-                    <button className="btn icon btn-primary">
+                    <button className="btn icon btn-primary" onClick={() => setIsDone(!isDone)}>
                         <DownloadCloud size={18} />
                         Baixar todos os clipes
                     </button>
