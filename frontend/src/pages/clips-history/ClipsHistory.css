@@ -1,12 +1,3 @@
-.white-container {
-    display: flex;
-    flex-direction: column;
-    height: 80vh; 
-    background: #fff;
-    border-radius: 12px;
-    overflow: hidden;
-}
-
 .processing-header {
     flex-shrink: 0;
     margin-bottom: 1.5rem;

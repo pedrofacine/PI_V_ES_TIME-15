@@ -195,7 +195,8 @@ html, body {
 .white-container.big {
   max-width: 1800px;
   width: 95%;
-  height: 85vh;
+  min-height: 85vh;
+  height: auto;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
