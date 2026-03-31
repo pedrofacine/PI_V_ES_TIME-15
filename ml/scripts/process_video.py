@@ -1,0 +1,266 @@
+"""
+Pipeline de processamento de vídeo:
+  1. YOLO detecta pessoas frame a frame
+  2. EasyOCR lê número da camisa nos crops
+  3. Após encontrar o jogador, rastreia por IoU
+  4. Corta clipes dos trechos em que ele aparece
+  5. Retorna lista de dicts {path, start_ts, end_ts}
+"""
+
+import os
+import cv2
+import numpy as np
+import easyocr
+from pathlib import Path
+from ultralytics import YOLO
+
+
+
+FRAME_SKIP         = 2
+OCR_SEARCH_FRAMES  = 1200
+MIN_W, MIN_H       = 60, 120
+MIN_CLIP_FRAMES    = 15
+GAP_TOLERANCE      = 30
+IOU_THRESHOLD      = 0.25
+PROCESS_WIDTH      = 1280   # redimensiona frames maiores que isso antes de processar
+
+try:
+    import torch
+    USE_GPU = torch.cuda.is_available()
+except ImportError:
+    USE_GPU = False
+
+
+
+
+def _resize_frame(frame: np.ndarray) -> np.ndarray:
+    """Redimensiona o frame para PROCESS_WIDTH se for maior."""
+    h, w = frame.shape[:2]
+    if w > PROCESS_WIDTH:
+        scale = PROCESS_WIDTH / w
+        frame = cv2.resize(frame, (PROCESS_WIDTH, int(h * scale)))
+    return frame
+
+
+def preprocess_crop_for_ocr(crop: np.ndarray) -> np.ndarray:
+    """Aumenta e melhora o contraste do crop para facilitar o OCR."""
+    h, w = crop.shape[:2]
+    crop = cv2.resize(crop, (w * 3, h * 3), interpolation=cv2.INTER_CUBIC)
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    gray = cv2.equalizeHist(gray)
+    return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+
+
+def _iou(a: list, b: list) -> float:
+    """Calcula IoU entre dois bboxes [x1, y1, x2, y2]."""
+    xa = max(a[0], b[0]); ya = max(a[1], b[1])
+    xb = min(a[2], b[2]); yb = min(a[3], b[3])
+    inter = max(0, xb - xa) * max(0, yb - ya)
+    if inter == 0:
+        return 0.0
+    area_a = (a[2] - a[0]) * (a[3] - a[1])
+    area_b = (b[2] - b[0]) * (b[3] - b[1])
+    return inter / float(area_a + area_b - inter)
+
+
+def _read_numbers(crop: np.ndarray, reader: easyocr.Reader) -> list[int]:
+    """Retorna lista de números encontrados no crop via OCR."""
+    crop    = preprocess_crop_for_ocr(crop)
+    results = reader.readtext(crop, allowlist="0123456789", detail=0)
+    numbers = []
+    for text in results:
+        text = text.strip()
+        if text.isdigit():
+            numbers.append(int(text))
+    return numbers
+
+
+def _save_clip(frames: list, out_path: str, fps: float, size: tuple[int, int]) -> None:
+    """Salva lista de frames como arquivo .mp4."""
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out    = cv2.VideoWriter(out_path, fourcc, fps, size)
+    for frame in frames:
+        out.write(frame)
+    out.release()
+
+
+def _get_person_boxes(results) -> list[list[int]]:
+    """Extrai bboxes de pessoas (classe 0) dos resultados do YOLO."""
+    boxes = []
+    for box, cls in zip(results[0].boxes.xyxy, results[0].boxes.cls):
+        if int(cls) != 0:
+            continue
+        x1, y1, x2, y2 = map(int, box)
+        if (x2 - x1) >= MIN_W and (y2 - y1) >= MIN_H:
+            boxes.append([x1, y1, x2, y2])
+    return boxes
+
+
+
+
+def process_video(
+    video_path: str,
+    target_number: int,
+    output_dir: str,
+) -> list[dict]:
+    """
+    Processa o vídeo e retorna lista de dicts:
+      [{ "path": str, "start_ts": float, "end_ts": float }, ...]
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    print(f"[GPU] {'Ativada' if USE_GPU else 'Desativada — usando CPU'}")
+
+    model  = YOLO("yolov8n.pt")
+    reader = easyocr.Reader(["en"], gpu=USE_GPU)
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Não foi possível abrir o vídeo: {video_path}")
+
+    fps   = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    vid_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    vid_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    # Tamanho final dos clipes (respeitando redimensionamento)
+    if vid_w > PROCESS_WIDTH:
+        scale      = PROCESS_WIDTH / vid_w
+        frame_size = (PROCESS_WIDTH, int(vid_h * scale))
+    else:
+        frame_size = (vid_w, vid_h)
+
+  
+    print(f"[1/3] Procurando jogador #{target_number}...")
+
+    target_box    = None
+    frame_count   = 0
+    search_frames = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame = _resize_frame(frame)   # redimensiona antes de tudo
+        frame_count   += 1
+        search_frames += 1
+
+        if search_frames > OCR_SEARCH_FRAMES:
+            raise ValueError(
+                f"Jogador #{target_number} não encontrado nos primeiros "
+                f"{OCR_SEARCH_FRAMES} frames analisados."
+            )
+
+        if frame_count % FRAME_SKIP != 0:
+            continue
+
+        results = model(frame, verbose=False)
+        boxes   = _get_person_boxes(results)
+
+        for box in boxes:
+            x1, y1, x2, y2 = box
+            crop    = frame[y1:y2, x1:x2]
+            numbers = _read_numbers(crop, reader)
+
+            if target_number in numbers:
+                target_box = box
+                print(f"    ✓ Jogador encontrado no frame {frame_count}!")
+                break
+
+        if target_box:
+            break
+
+    if target_box is None:
+        raise ValueError(f"Jogador #{target_number} não encontrado no vídeo.")
+
+   
+    print("[2/3] Rastreando jogador...")
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count - 1)
+
+    clips_data:      list[tuple[list, int, int]] = []
+    current_clip:    list = []
+    clip_start_frame = 0
+    gap_counter      = 0
+    tracking_frame   = frame_count - 1
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame = _resize_frame(frame)   # redimensiona antes de tudo
+        tracking_frame += 1
+
+        results  = model(frame, verbose=False)
+        boxes    = _get_person_boxes(results)
+
+        best_box = None
+        best_iou = 0.0
+        for box in boxes:
+            val = _iou(box, target_box)
+            if val > best_iou:
+                best_iou = val
+                best_box = box
+
+        if best_iou >= IOU_THRESHOLD and best_box:
+            target_box  = best_box
+            gap_counter = 0
+
+            if not current_clip:
+                clip_start_frame = tracking_frame
+
+            current_clip.append(frame.copy())
+        else:
+            gap_counter += 1
+
+            if gap_counter > GAP_TOLERANCE:
+                if len(current_clip) >= MIN_CLIP_FRAMES:
+                    clips_data.append((current_clip, clip_start_frame, tracking_frame))
+                current_clip = []
+                gap_counter  = 0
+
+    if len(current_clip) >= MIN_CLIP_FRAMES:
+        clips_data.append((current_clip, clip_start_frame, tracking_frame))
+
+    cap.release()
+
+    
+    print(f"[3/3] Salvando {len(clips_data)} clipe(s)...")
+
+    saved = []
+    for i, (frames, start_frame, end_frame) in enumerate(clips_data):
+        out_path = os.path.join(output_dir, f"clip_{i + 1:03d}.mp4")
+        _save_clip(frames, out_path, fps, frame_size)
+
+        saved.append({
+            "path":     out_path,
+            "start_ts": round(start_frame / fps, 2),
+            "end_ts":   round(end_frame   / fps, 2),
+        })
+
+        print(f"    Salvo: {Path(out_path).name} "
+              f"({round(start_frame/fps, 1)}s → {round(end_frame/fps, 1)}s)")
+
+    print(f"Concluído! {len(saved)} clipe(s) gerado(s).")
+    return saved
+
+
+
+
+if __name__ == "__main__":
+    import sys
+    import json
+
+    if len(sys.argv) < 4:
+        print("Uso: python process_video.py <video_path> <numero_camisa> <output_dir>")
+        print("Ex:  python process_video.py ../videos/jogo.mp4 11 ../output/clips")
+        sys.exit(1)
+
+    result = process_video(
+        video_path    = sys.argv[1],
+        target_number = int(sys.argv[2]),
+        output_dir    = sys.argv[3],
+    )
+
+    print(json.dumps(result, indent=2))

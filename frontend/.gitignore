@@ -23,4 +23,13 @@ dist-ssr
 *.sln
 *.sw?
 
+
+
+
+venv/
+backend/venv/
+.env
+
+backend/weights/
+*.pt
 .env

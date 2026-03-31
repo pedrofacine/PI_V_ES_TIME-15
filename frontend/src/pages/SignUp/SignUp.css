@@ -72,6 +72,13 @@
   margin: 0.1rem 0;
 }
 
+.signup-error {
+  color: #FF5449;
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: -0.3rem;
+}
+
 .signup-button {
   margin-top: 0.5rem;
   width: 140px;

@@ -1,6 +1,14 @@
 __pycache__/
 *.pyc
+
 venv/
+backend/venv/
+.env
+
+backend/weights/
+*.pt
+*.db
+
 temp_matches/
 
-*.db
+.idea/

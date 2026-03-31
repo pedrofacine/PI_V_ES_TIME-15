@@ -1,3 +1,8 @@
+# ML / YOLO tracking (vídeo)
+torch>=2.0.0
+ultralytics>=8.0.0
+opencv-python-headless>=4.8.0
+
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
@@ -28,7 +33,9 @@ pydantic-settings==2.13.1
 pydantic_core==2.41.5
 Pygments==2.19.2
 python-dotenv==1.2.1
+python-jose[cryptography]==3.3.0
 python-multipart==0.0.22
+passlib[bcrypt]==1.7.4
 PyYAML==6.0.3
 rich==14.3.3
 rich-toolkit==0.19.7
@@ -47,3 +54,5 @@ uvicorn==0.41.0
 watchfiles==1.1.1
 websockets==16.0
 wheel==0.46.3
+
+easyocr==1.7.2
