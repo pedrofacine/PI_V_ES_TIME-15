@@ -1,12 +1,12 @@
 task: detect
 mode: train
-model: yolov8n.pt
+model: yolov8s.pt
 data: C:\Users\danie\Downloads\Smart Scout.v1i.yolov8\data.yaml
-epochs: 50
+epochs: 100
 time: null
 patience: 100
 batch: 16
-imgsz: 640
+imgsz: 1024
 save: true
 save_period: -1
 cache: false

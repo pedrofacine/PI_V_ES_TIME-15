@@ -1,10 +1,13 @@
 from ultralytics import YOLO
 
-model = YOLO("yolov8n.pt")  # ou "yolo11s.pt" se você tiver
+model = YOLO("yolov8s.pt")  # modelo mais forte
+
 model.train(
     data="C:\\Users\\danie\\Downloads\\Smart Scout.v1i.yolov8\\data.yaml",
-    epochs=50,
-    imgsz=640,
-    batch=16,
-    name="numbers_local"
+    epochs=100,          
+    imgsz=1024,         
+    batch=8,             
+    name="numbers_v2",
+    patience=30,         
+    workers=4            
 )
