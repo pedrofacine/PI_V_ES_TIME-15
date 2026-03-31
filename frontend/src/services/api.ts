@@ -9,6 +9,8 @@ function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> 
   );
 }
 
+
+
 export interface UserResponse {
   id: string;
   email: string;
@@ -35,6 +37,26 @@ export interface RegisterBody {
   last_name: string;
 }
 
+
+
+export type JobStatusType = "PENDING" | "SCANNING" | "TRACKING" | "COMPLETED" | "ERROR";
+
+export interface ClipResult {
+  id: string;
+  file_url: string;
+  start_timestamp: number;
+  end_timestamp: number;
+  duration: number;
+}
+
+export interface JobStatus {
+  job_id: string;
+  status: JobStatusType;
+  clips: ClipResult[];
+}
+
+
+
 export async function login(body: LoginBody): Promise<TokenPayload> {
   try {
     const res = await fetchWithTimeout(`${API_BASE}/auth/login`, {
@@ -48,9 +70,8 @@ export async function login(body: LoginBody): Promise<TokenPayload> {
     }
     return res.json();
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
+    if (err instanceof Error && err.name === "AbortError")
       throw new Error("Servidor não respondeu. Verifique se o backend está rodando e tente novamente.");
-    }
     throw err;
   }
 }
@@ -69,9 +90,108 @@ export async function register(body: RegisterBody): Promise<TokenPayload> {
     }
     return res.json();
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
+    if (err instanceof Error && err.name === "AbortError")
       throw new Error("Servidor não respondeu. Verifique se o backend está rodando e tente novamente.");
-    }
     throw err;
   }
+}
+
+
+
+const TOKEN_KEY = "access_token";
+const USER_KEY  = "user";
+
+export function saveSession(payload: TokenPayload): void {
+  localStorage.setItem(TOKEN_KEY, payload.access_token);
+  localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+}
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getUser(): UserResponse | null {
+  const raw = localStorage.getItem(USER_KEY);
+  return raw ? (JSON.parse(raw) as UserResponse) : null;
+}
+
+export function clearSession(): void {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+export function isAuthenticated(): boolean {
+  return Boolean(getToken());
+}
+
+
+
+export async function authRequest<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = getToken();
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+    if (res.status === 401) {
+      clearSession();
+      window.location.href = "/login";
+      throw new Error("Sessão expirada. Faça login novamente.");
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail ?? `Erro ${res.status}`);
+    }
+    return res.json() as Promise<T>;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError")
+      throw new Error("Servidor não respondeu. Verifique se o backend está rodando e tente novamente.");
+    throw err;
+  }
+}
+
+
+
+export async function createJob(
+  video: File,
+  targetNumber: number
+): Promise<{ job_id: string; status: string }> {
+  const token = getToken();
+  const form  = new FormData();
+  form.append("video", video);
+  form.append("target_number", String(targetNumber));
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/jobs/`, {
+      method:  "POST",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body:    form,
+      // SEM Content-Type: browser define o boundary do multipart automaticamente
+    });
+    if (res.status === 401) {
+      clearSession();
+      window.location.href = "/login";
+      throw new Error("Sessão expirada.");
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail ?? "Erro ao iniciar análise.");
+    }
+    return res.json();
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError")
+      throw new Error("Servidor não respondeu. Verifique se o backend está rodando e tente novamente.");
+    throw err;
+  }
+}
+
+export async function getJobStatus(jobId: string): Promise<JobStatus> {
+  return authRequest<JobStatus>(`/jobs/${jobId}`);
 }

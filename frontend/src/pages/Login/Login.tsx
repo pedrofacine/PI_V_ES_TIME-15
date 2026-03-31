@@ -3,7 +3,7 @@ import logo from "../../assets/logo.png"
 import { SyntheticEvent, useState } from "react"
 import { Lock, Mail } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
-import { login } from "../../services/api"
+import { login, saveSession } from "../../services/api"
 
 export default function Login() {
   const navigate = useNavigate()
@@ -24,8 +24,8 @@ export default function Login() {
     setLoading(true)
     try {
       const data = await login({ email: email.trim(), password })
-      localStorage.setItem("token", data.access_token)
-      localStorage.setItem("user", JSON.stringify(data.user))
+
+      saveSession(data)
       navigate("/", { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login.")
