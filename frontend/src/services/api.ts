@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000/api/v1";
+const API_BASE = import.meta.env.VITE_API_PATH ?? "http://127.0.0.1:8000/api/v1";
 const REQUEST_TIMEOUT_MS = 15000;
 
 function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
@@ -53,6 +53,19 @@ export interface JobStatus {
   job_id: string;
   status: JobStatusType;
   clips: ClipResult[];
+}
+
+export interface ClipHistoryItem {
+  id: string;
+  file_url: string;
+  duration: string;
+}
+
+export interface ClipHistoryGroup {
+  job_id: string;
+  target_number: number;
+  generated_at: string;
+  clips: ClipHistoryItem[];
 }
 
 
@@ -194,4 +207,8 @@ export async function createJob(
 
 export async function getJobStatus(jobId: string): Promise<JobStatus> {
   return authRequest<JobStatus>(`/jobs/${jobId}`);
+}
+
+export async function listClips(): Promise<ClipHistoryGroup[]> {
+  return authRequest<ClipHistoryGroup[]>("/clips/");
 }

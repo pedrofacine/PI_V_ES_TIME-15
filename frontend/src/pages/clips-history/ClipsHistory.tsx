@@ -1,35 +1,48 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ClipCard, ClipData } from "../../components/clip-card/ClipCard";
 import { Grid } from "../../components/grid/Grid";
 import './ClipsHistory.css'
-import placeholderImg from '../../assets/placeholder.png';
 import { Search, ChevronDown } from "lucide-react";
+import { listClips, ClipHistoryGroup } from "../../services/api";
+
+const API_HOST = new URL(import.meta.env.VITE_API_PATH ?? "http://127.0.0.1:8000/api/v1").origin;
 
 type ClipWithDate = ClipData & { generatedAt: string };
 
+function groupToClips(group: ClipHistoryGroup): ClipWithDate[] {
+    return group.clips.map((clip, i) => ({
+        id:           clip.id,
+        title:        `CLIP#${String(i + 1).padStart(3, "0")}`,
+        status:       "completed" as const,
+        thumbnailUrl: undefined,
+        duration:     clip.duration,
+        generatedAt:  group.generated_at,
+        fileUrl:      `${API_HOST}${clip.file_url}`,
+    }));
+}
+
 export default function ClipsHistory() {
-    const [search, setSearch] = useState("");
-    const [sortBy, setSortBy] = useState<"recent" | "oldest">("recent");
+    const [groups, setGroups]   = useState<ClipHistoryGroup[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError]     = useState("");
+    const [search, setSearch]   = useState("");
+    const [sortBy, setSortBy]   = useState<"recent" | "oldest">("recent");
     const [modalSession, setModalSession] = useState<{ date: string, clips: ClipWithDate[] } | null>(null);
 
-    const mockClips: ClipWithDate[] = [
-        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '27/08/2025 - 10:41' },
-        { id: '2', title: 'CLIP#002', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '27/08/2025 - 10:41' },
-        { id: '3', title: 'CLIP#003', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '27/08/2025 - 10:41' },
-        { id: '4', title: 'CLIP#004', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '27/08/2025 - 10:41' },
-        { id: '5', title: 'CLIP#005', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '27/08/2025 - 10:41' },
-        { id: '6', title: 'CLIP#006', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '27/08/2025 - 10:41' },
-        { id: '7', title: 'CLIP#007', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '26/08/2025 - 18:25' },
-        { id: '8', title: 'CLIP#008', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '26/08/2025 - 18:25' },
-        { id: '9', title: 'CLIP#009', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '26/08/2025 - 18:25' },
-        { id: '10', title: 'CLIP#010', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '26/08/2025 - 18:25' },
-        { id: '11', title: 'CLIP#011', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '25/08/2025 - 14:07' },
-        { id: '12', title: 'CLIP#012', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15', generatedAt: '25/08/2025 - 14:07' },
-    ];
+    useEffect(() => {
+        listClips()
+            .then(setGroups)
+            .catch((err) => setError(err.message))
+            .finally(() => setLoading(false));
+    }, []);
+
+    const allClips: ClipWithDate[] = useMemo(() => {
+        return groups.flatMap(groupToClips);
+    }, [groups]);
 
     const filteredClips = useMemo(() => {
         const normalized = search.trim().toLowerCase();
-        const filtered = mockClips.filter(clip =>
+        const filtered = allClips.filter(clip =>
             !normalized || clip.title.toLowerCase().includes(normalized)
         );
 
@@ -37,7 +50,7 @@ export default function ClipsHistory() {
             if (sortBy === "recent") return b.generatedAt.localeCompare(a.generatedAt);
             return a.generatedAt.localeCompare(b.generatedAt);
         });
-    }, [search, sortBy]);
+    }, [allClips, search, sortBy]);
 
     const clipsByDate = useMemo(() => {
         return filteredClips.reduce<Record<string, ClipWithDate[]>>((acc, clip) => {
@@ -81,6 +94,24 @@ export default function ClipsHistory() {
                 </div>
 
                 <div className="scrollable-content">
+                    {loading && (
+                        <p style={{ textAlign: "center", color: "#888", margin: "32px 0" }}>
+                            Carregando clipes...
+                        </p>
+                    )}
+
+                    {error && (
+                        <p style={{ textAlign: "center", color: "red", margin: "32px 0" }}>
+                            {error}
+                        </p>
+                    )}
+
+                    {!loading && !error && Object.keys(clipsByDate).length === 0 && (
+                        <p style={{ textAlign: "center", color: "#888", margin: "32px 0" }}>
+                            Nenhum clipe encontrado.
+                        </p>
+                    )}
+
                     {Object.entries(clipsByDate).map(([date, clips], index) => (
                         <React.Fragment key={date}>
                             <section className="clip-group">

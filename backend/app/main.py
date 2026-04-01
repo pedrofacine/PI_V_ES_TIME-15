@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from app.database import create_db_and_tables
-from app.routers import auth, jobs
+from app.routers import auth, jobs, clips
 
 app = FastAPI(title="SmartScout API")
 
@@ -27,6 +27,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
+app.include_router(clips.router, prefix="/api/v1")
 
 @app.on_event("startup")
 def on_startup():
