@@ -7,6 +7,9 @@ Pipeline de processamento de vídeo:
   5. Retorna lista de dicts {path, start_ts, end_ts}
 """
 
+from csv import reader
+
+from trackers.tracker import Tracker
 import os
 import cv2
 import numpy as np
@@ -24,13 +27,13 @@ GAP_TOLERANCE      = 30
 IOU_THRESHOLD      = 0.25
 PROCESS_WIDTH      = 1280   # redimensiona frames maiores que isso antes de processar
 
+tracker = Tracker("models/best.pt")
+
 try:
     import torch
     USE_GPU = torch.cuda.is_available()
 except ImportError:
     USE_GPU = False
-
-
 
 
 def _resize_frame(frame: np.ndarray) -> np.ndarray:
@@ -96,8 +99,6 @@ def _get_person_boxes(results) -> list[list[int]]:
     return boxes
 
 
-
-
 def process_video(
     video_path: str,
     target_number: int,
@@ -150,7 +151,7 @@ def process_video(
         
         current_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
         
-        # --- Condição de parada: passamos do tempo de fim e não achou o jogador ---
+        # Condição de parada: passamos do tempo de fim e não achou o jogador
         if end_msec > 0 and current_msec > end_msec:
             raise ValueError(f"Jogador #{target_number} não encontrado no trecho selecionado ({start_ts}s - {end_ts}s).")
 
@@ -197,7 +198,7 @@ def process_video(
 
         current_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
 
-        # --- Condição de parada: atingimos o tempo de fim definido pelo usuário ---
+        # Condição de parada: atingimos o tempo de fim definido pelo usuário
         if end_msec > 0 and current_msec > end_msec:
             break
 
@@ -207,30 +208,53 @@ def process_video(
         results  = model(frame, verbose=False)
         boxes    = _get_person_boxes(results)
 
-        best_box = None
-        best_iou = 0.0
-        for box in boxes:
-            val = _iou(box, target_box)
-            if val > best_iou:
-                best_iou = val
-                best_box = box
+        # roda tracker no frame atual
+        tracks = tracker.get_object_tracks([frame], read_from_stub=False, stub_path=None)
+        players = tracks["players"][0]  # só 1 frame
 
-        if best_iou >= IOU_THRESHOLD and best_box:
-            target_box  = best_box
-            gap_counter = 0
+    found = False
 
-            if not current_clip:
-                clip_start_frame = tracking_frame
+    target_id = None
 
-            current_clip.append(frame.copy())
+    for player in players:
+        track_id = player["track_id"]
+        x1, y1, x2, y2 = player["bbox"]
+
+        box = [x1, y1, x2, y2]
+
+        # primeira vez: usa OCR pra achar o jogador
+        if target_box is None:
+            crop = frame[y1:y2, x1:x2]
+            numbers = _read_numbers(crop, reader)
+
+            if target_number in numbers:
+                target_box = box
+                target_id  = track_id
+                found = True
+                break
+
+        # depois: só segue pelo ID
         else:
-            gap_counter += 1
+            if track_id == target_id:
+                target_box = box
+                found = True
+                break
 
-            if gap_counter > GAP_TOLERANCE:
-                if len(current_clip) >= MIN_CLIP_FRAMES:
-                    clips_data.append((current_clip, clip_start_frame, tracking_frame))
-                current_clip = []
-                gap_counter  = 0
+            if found:
+                gap_counter = 0
+
+                if not current_clip:
+                    clip_start_frame = tracking_frame
+
+                current_clip.append(frame.copy())
+            else:
+                gap_counter += 1
+
+                if gap_counter > GAP_TOLERANCE:
+                    if len(current_clip) >= MIN_CLIP_FRAMES:
+                        clips_data.append((current_clip, clip_start_frame, tracking_frame))
+                    current_clip = []
+                    gap_counter  = 0
 
     if len(current_clip) >= MIN_CLIP_FRAMES:
         clips_data.append((current_clip, clip_start_frame, tracking_frame))
@@ -256,8 +280,6 @@ def process_video(
 
     print(f"Concluído! {len(saved)} clipe(s) gerado(s).")
     return saved
-
-
 
 
 if __name__ == "__main__":
