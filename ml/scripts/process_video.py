@@ -17,7 +17,7 @@ from ultralytics import YOLO
 
 
 FRAME_SKIP         = 2
-OCR_SEARCH_FRAMES  = 1200
+#OCR_SEARCH_FRAMES  = 1200
 MIN_W, MIN_H       = 60, 120
 MIN_CLIP_FRAMES    = 15
 GAP_TOLERANCE      = 30
@@ -102,6 +102,8 @@ def process_video(
     video_path: str,
     target_number: int,
     output_dir: str,
+    start_ts: int = 0,
+    end_ts: int = 0
 ) -> list[dict]:
     """
     Processa o vídeo e retorna lista de dicts:
@@ -122,6 +124,11 @@ def process_video(
     vid_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     vid_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    start_msec = start_ts * 1000
+    end_msec   = end_ts * 1000
+    cap.set(cv2.CAP_PROP_POS_MSEC, start_msec)
+    frame_count = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+
     # Tamanho final dos clipes (respeitando redimensionamento)
     if vid_w > PROCESS_WIDTH:
         scale      = PROCESS_WIDTH / vid_w
@@ -140,16 +147,15 @@ def process_video(
         ret, frame = cap.read()
         if not ret:
             break
+        
+        current_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
+        
+        # --- Condição de parada: passamos do tempo de fim e não achou o jogador ---
+        if end_msec > 0 and current_msec > end_msec:
+            raise ValueError(f"Jogador #{target_number} não encontrado no trecho selecionado ({start_ts}s - {end_ts}s).")
 
-        frame = _resize_frame(frame)   # redimensiona antes de tudo
-        frame_count   += 1
-        search_frames += 1
-
-        if search_frames > OCR_SEARCH_FRAMES:
-            raise ValueError(
-                f"Jogador #{target_number} não encontrado nos primeiros "
-                f"{OCR_SEARCH_FRAMES} frames analisados."
-            )
+        frame = _resize_frame(frame)
+        frame_count += 1
 
         if frame_count % FRAME_SKIP != 0:
             continue
@@ -187,6 +193,12 @@ def process_video(
     while True:
         ret, frame = cap.read()
         if not ret:
+            break
+
+        current_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
+
+        # --- Condição de parada: atingimos o tempo de fim definido pelo usuário ---
+        if end_msec > 0 and current_msec > end_msec:
             break
 
         frame = _resize_frame(frame)   # redimensiona antes de tudo

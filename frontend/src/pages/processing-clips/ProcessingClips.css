@@ -57,6 +57,13 @@
     animation: indeterminate-loading 1.5s infinite ease-in-out;
 }
 
+.progress-bar-fill.error {
+    width: 100%;
+    animation: none; 
+    left: 0;
+    background-color: red;        
+}
+
 .progress-bar-fill.finished {
     width: 100%;
     animation: none; 

@@ -15,6 +15,8 @@ from app.database import get_session
 from app.models import User, Video, ProcessingJob, Clip
 from app.core.auth import get_current_user
 
+import traceback
+
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 UPLOAD_DIR = Path("uploads/videos")
@@ -24,56 +26,71 @@ CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 
-
-def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int):
+def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int, start_ts: int, end_ts: int):
     import sys
+    print(f"[pipeline] Iniciando job {job_id} do seg {start_ts} ao {end_ts}") 
     
-    print(f"[pipeline] Iniciando job {job_id}") 
-    
-    sys.path.append(str(Path(__file__).parent.parent.parent.parent / "ml" / "scripts"))
-    
+    # Adiciona o caminho dos scripts de ML
+    scripts_path = str(Path(__file__).parent.parent.parent.parent / "ml" / "scripts")
+    if scripts_path not in sys.path:
+        sys.path.append(scripts_path)
+
+    # IMPORTANTE: Importamos a engine diretamente, não o generator de sessão do FastAPI
+    from app.database import engine 
+
+    # Abrimos uma sessão de banco EXCLUSIVA para esta thread
     try:
-        from process_video import process_video
-        print(f"[pipeline] process_video importado OK")
+        with Session(engine) as session:
+            job = session.get(ProcessingJob, job_id)
+            if not job:
+                print(f"[pipeline error] Job {job_id} não encontrado no banco de dados.")
+                return
+
+            # Atualiza para TRACKING imediatamente
+            job.status     = "TRACKING"
+            job.updated_at = datetime.now(timezone.utc)
+            session.commit()
+
+            print(f"[pipeline] Importando módulo process_video...")
+            from process_video import process_video
+            print(f"[pipeline] process_video importado com sucesso.")
+
+            output_dir = str(CLIPS_DIR / str(job_id))
+            
+            print(f"[pipeline] Executando IA...")
+            clip_data = process_video(video_path, target_number, output_dir, start_ts, end_ts)
+
+            for item in clip_data:
+                clip = Clip(
+                    job_id          = job_id,
+                    storage_path    = item["path"],
+                    start_timestamp = item["start_ts"],
+                    end_timestamp   = item["end_ts"],
+                )
+                session.add(clip)
+
+            job.status     = "COMPLETED"
+            job.updated_at = datetime.now(timezone.utc)
+            session.commit()
+            print(f"[pipeline] Job {job_id} concluído com {len(clip_data)} clipe(s).")
+
     except Exception as e:
-        print(f"[pipeline] ERRO ao importar process_video: {e}")
-        return
-
-    from app.database import get_session as _get_session
-    output_dir = str(CLIPS_DIR / str(job_id))
-    session: Session = next(_get_session())
-
-    try:
-        job = session.get(ProcessingJob, job_id)
-        job.status     = "TRACKING"
-        job.updated_at = datetime.now(timezone.utc)
-        session.commit()
-
-        print(f"[pipeline] Chamando process_video...")
-        clip_data = process_video(video_path, target_number, output_dir)
-
-        for item in clip_data:
-            clip = Clip(
-                job_id          = job_id,
-                storage_path    = item["path"],
-                start_timestamp = item["start_ts"],
-                end_timestamp   = item["end_ts"],
-            )
-            session.add(clip)
-
-        job.status     = "COMPLETED"
-        job.updated_at = datetime.now(timezone.utc)
-        session.commit()
-        print(f"[pipeline] Job {job_id} concluído com {len(clip_data)} clipes")
-
-    except Exception as e:
-        job = session.get(ProcessingJob, job_id)
-        job.status     = "ERROR"
-        job.updated_at = datetime.now(timezone.utc)
-        session.commit()
-        print(f"[pipeline error] {e}")
-    finally:
-        session.close()
+        # Se qualquer coisa falhar (importação, banco, YOLO), o código cai aqui
+        print(f"\n[PIPELINE CRASH] Erro durante o processamento do Job {job_id}:")
+        traceback.print_exc() # Imprime o stack trace completo no console para podermos debugar
+        
+        # Garante que o frontend saiba que falhou abrindo uma nova sessão de emergência
+        try:
+            from app.database import engine
+            with Session(engine) as error_session:
+                job = error_session.get(ProcessingJob, job_id)
+                if job:
+                    job.status     = "ERROR"
+                    job.updated_at = datetime.now(timezone.utc)
+                    error_session.commit()
+                    print(f"[pipeline recovery] Status do Job {job_id} atualizado para ERROR.")
+        except Exception as db_err:
+            print(f"[pipeline error] Falha crítica ao tentar gravar ERROR no banco: {db_err}")
 
 
 
@@ -83,6 +100,8 @@ async def create_job(
     video: UploadFile   = File(...),
     current_user: User  = Depends(get_current_user),
     session: Session    = Depends(get_session),
+    start_ts: int       = Form(...),
+    end_ts: int         = Form(...)
 ):
     """Recebe vídeo + número da camisa, persiste e inicia o processamento."""
 
@@ -122,7 +141,7 @@ async def create_job(
     # 4. Dispara pipeline em background
     thread = threading.Thread(
         target  = run_pipeline,
-        args    = (job.id, str(video_path), target_number),
+        args    = (job.id, str(video_path), target_number, start_ts, end_ts),
         daemon  = True,
     )
     thread.start()

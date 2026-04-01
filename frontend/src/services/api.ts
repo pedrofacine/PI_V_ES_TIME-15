@@ -1,4 +1,3 @@
-const API_BASE = "http://localhost:8000/api/v1";
 const REQUEST_TIMEOUT_MS = 15000;
 
 function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
@@ -59,7 +58,7 @@ export interface JobStatus {
 
 export async function login(body: LoginBody): Promise<TokenPayload> {
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/auth/login`, {
+    const res = await fetchWithTimeout(`${import.meta.env.VITE_API_PATH}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -78,7 +77,7 @@ export async function login(body: LoginBody): Promise<TokenPayload> {
 
 export async function register(body: RegisterBody): Promise<TokenPayload> {
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/auth/register`, {
+    const res = await fetchWithTimeout(`${import.meta.env.VITE_API_PATH}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -132,7 +131,7 @@ export async function authRequest<T>(
 ): Promise<T> {
   const token = getToken();
   try {
-    const res = await fetchWithTimeout(`${API_BASE}${path}`, {
+    const res = await fetchWithTimeout(`${import.meta.env.VITE_API_PATH}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -161,15 +160,19 @@ export async function authRequest<T>(
 
 export async function createJob(
   video: File,
-  targetNumber: number
+  targetNumber: number,
+  startTs: number,
+  endTs: number
 ): Promise<{ job_id: string; status: string }> {
   const token = getToken();
   const form  = new FormData();
   form.append("video", video);
   form.append("target_number", String(targetNumber));
+  form.append("start_ts", String(startTs));
+  form.append("end_ts", String(endTs))
 
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/jobs/`, {
+    const res = await fetchWithTimeout(`${import.meta.env.VITE_API_PATH}/jobs/`, {
       method:  "POST",
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body:    form,

@@ -6,7 +6,6 @@ import './ProcessingClips.css';
 import { DownloadCloud, RefreshCw } from "lucide-react";
 import { getJobStatus, JobStatus, ClipResult } from "../../services/api";
 
-const API_HOST        = "http://localhost:8000";
 const POLL_INTERVAL   = 3000;
 
 // Converte ClipResult (backend) → ClipData (ClipCard)
@@ -55,6 +54,7 @@ export default function ProcessingClipsPage() {
   }, [jobId]);
 
   const isDone = job?.status === "COMPLETED";
+  const isError = job?.status === "ERROR";
   const clips  = job?.clips ?? [];
 
   function getTitle() {
@@ -71,7 +71,7 @@ export default function ProcessingClipsPage() {
   function handleDownloadAll() {
     clips.forEach((clip) => {
       const a  = document.createElement("a");
-      a.href     = `${API_HOST}${clip.file_url}`;
+      a.href     = `${import.meta.env.VITE_API_PATH}${clip.file_url}`;
       a.download = `clip_${clip.id}.mp4`;
       a.click();
     });
@@ -95,7 +95,7 @@ export default function ProcessingClipsPage() {
           )}
 
           <div className="progress-bar-container">
-            <div className={`progress-bar-fill ${isDone ? "finished" : "animating"}`} />
+            <div className={`progress-bar-fill ${isDone ? "finished" : isError ? "error" : "animating"}`} />
           </div>
         </div>
 
