@@ -32,9 +32,9 @@ def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int):
     print(f"[pipeline] Iniciando job {job_id}") 
     
     ML_PATH = Path(__file__).resolve().parents[3] / "ml"
-    ML_FOOTBALL_PATH = ML_PATH / "football_analysis"
+    ML_SCRIPTS_PATH = ML_PATH / "scripts"
 
-    for path in (ML_PATH, ML_FOOTBALL_PATH):
+    for path in (ML_PATH, ML_SCRIPTS_PATH):
         if str(path) not in sys.path:
             sys.path.insert(0, str(path))
 

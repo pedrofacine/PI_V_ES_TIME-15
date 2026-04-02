@@ -9,7 +9,7 @@ Pipeline de processamento de vídeo:
 
 from csv import reader
 
-from football_analysis.trackers.tracker import Tracker
+from scripts.trackers.tracker import PlayerTracker
 import os
 import cv2
 import numpy as np
@@ -27,7 +27,9 @@ GAP_TOLERANCE      = 30
 IOU_THRESHOLD      = 0.25
 PROCESS_WIDTH      = 1280   # redimensiona frames maiores que isso antes de processar
 
-tracker = Tracker("models/best.pt")
+ML_ROOT = Path(__file__).resolve().parents[1]  # "ml"
+MODEL_PATH = ML_ROOT / "models" / "best.pt"
+tracker = PlayerTracker()
 
 try:
     import torch
@@ -209,8 +211,24 @@ def process_video(
         boxes    = _get_person_boxes(results)
 
         # roda tracker no frame atual
-        tracks = tracker.get_object_tracks([frame], read_from_stub=False, stub_path=None)
-        players = tracks["players"][0]  # só 1 frame
+        # Converter boxes para formato esperado pelo PlayerTracker
+        detections = []
+        for box in boxes:
+            x1, y1, x2, y2 = box
+            # Formato: (x1, y1, x2, y2, confidence, class_id)
+            detections.append((x1, y1, x2, y2, 0.9, 0))  # confidence=0.9, class_id=0 (person)
+        
+        tracks = tracker.update(detections, frame)
+        
+        # Converter tracks para formato esperado pelo código
+        players = []
+        for track in tracks:
+            x1, y1, x2, y2, track_id = track
+            players.append({
+                "track_id": track_id,
+                "bbox": [x1, y1, x2, y2]
+            })
+
 
     found = False
 
@@ -240,49 +258,21 @@ def process_video(
                 found = True
                 break
 
-            if found:
-                gap_counter = 0
+        if found:
+            gap_counter = 0
 
-                if not current_clip:
-                    clip_start_frame = tracking_frame
+            if not current_clip:
+                clip_start_frame = tracking_frame
 
-                current_clip.append(frame.copy())
-            else:
-                gap_counter += 1
+            current_clip.append(frame.copy())
+        else:
+            gap_counter += 1
 
-                if gap_counter > GAP_TOLERANCE:
-                    if len(current_clip) >= MIN_CLIP_FRAMES:
-                        clips_data.append((current_clip, clip_start_frame, tracking_frame))
-                    current_clip = []
-                    gap_counter  = 0
-
-    if len(current_clip) >= MIN_CLIP_FRAMES:
-        clips_data.append((current_clip, clip_start_frame, tracking_frame))
-
-    cap.release()
-
-    
-    print(f"[3/3] Salvando {len(clips_data)} clipe(s)...")
-
-    saved = []
-    for i, (frames, start_frame, end_frame) in enumerate(clips_data):
-        out_path = os.path.join(output_dir, f"clip_{i + 1:03d}.mp4")
-        _save_clip(frames, out_path, fps, frame_size)
-
-        saved.append({
-            "path":     out_path,
-            "start_ts": round(start_frame / fps, 2),
-            "end_ts":   round(end_frame   / fps, 2),
-        })
-
-        print(f"    Salvo: {Path(out_path).name} "
-              f"({round(start_frame/fps, 1)}s → {round(end_frame/fps, 1)}s)")
-
-    print(f"Concluído! {len(saved)} clipe(s) gerado(s).")
-    return saved
-
-
-if __name__ == "__main__":
+            if gap_counter > GAP_TOLERANCE:
+                if len(current_clip) >= MIN_CLIP_FRAMES:
+                    clips_data.append((current_clip, clip_start_frame, tracking_frame))
+                current_clip = []
+                gap_counter  = 0
     import sys
     import json
 
