@@ -89,13 +89,13 @@ def _save_clip(frames: list, out_path: str, fps: float, size: tuple[int, int]) -
     out.release()
 
 
-def _get_person_boxes(results) -> list[list[int]]:
+def _get_person_boxes(results) -> list[list[float]]:
     """Extrai bboxes de pessoas (classe 0) dos resultados do YOLO."""
     boxes = []
     for box, cls in zip(results[0].boxes.xyxy, results[0].boxes.cls):
         if int(cls) != 0:
             continue
-        x1, y1, x2, y2 = map(int, box)
+        x1, y1, x2, y2 = map(float, box)
         if (x2 - x1) >= MIN_W and (y2 - y1) >= MIN_H:
             boxes.append([x1, y1, x2, y2])
     return boxes
@@ -167,7 +167,7 @@ def process_video(
         boxes   = _get_person_boxes(results)
 
         for box in boxes:
-            x1, y1, x2, y2 = box
+            x1, y1, x2, y2 = map(int, box)
             crop    = frame[y1:y2, x1:x2]
             numbers = _read_numbers(crop, reader)
 
@@ -216,7 +216,7 @@ def process_video(
         for box in boxes:
             x1, y1, x2, y2 = box
             # Formato: (x1, y1, x2, y2, confidence, class_id)
-            detections.append((x1, y1, x2, y2, 0.9, 0))  # confidence=0.9, class_id=0 (person)
+            detections.append([[x1, y1, x2, y2], 0.9, 0])  # bbox, confidence, class_id
         
         tracks = tracker.update(detections, frame)
         
@@ -273,6 +273,23 @@ def process_video(
                     clips_data.append((current_clip, clip_start_frame, tracking_frame))
                 current_clip = []
                 gap_counter  = 0
+
+    if current_clip and len(current_clip) >= MIN_CLIP_FRAMES:
+        clips_data.append((current_clip, clip_start_frame, tracking_frame))
+
+    results = []
+    for i, (frames_clip, start_frame, end_frame) in enumerate(clips_data, start=1):
+        start_ts = start_frame / fps
+        end_ts = end_frame / fps
+        clip_filename = f"clip_{i}_{target_number}_{int(start_ts)}-{int(end_ts)}.mp4"
+        clip_path = os.path.join(output_dir, clip_filename)
+        _save_clip(frames_clip, clip_path, fps, frame_size)
+        results.append({"path": clip_path, "start_ts": start_ts, "end_ts": end_ts})
+
+    return results
+
+
+if __name__ == "__main__":
     import sys
     import json
 
@@ -282,9 +299,9 @@ def process_video(
         sys.exit(1)
 
     result = process_video(
-        video_path    = sys.argv[1],
-        target_number = int(sys.argv[2]),
-        output_dir    = sys.argv[3],
+        video_path=sys.argv[1],
+        target_number=int(sys.argv[2]),
+        output_dir=sys.argv[3],
     )
 
     print(json.dumps(result, indent=2))
