@@ -9,7 +9,7 @@ Pipeline de processamento de vídeo:
 
 from csv import reader
 
-from trackers.tracker import Tracker
+from football_analysis.trackers.tracker import Tracker
 import os
 import cv2
 import numpy as np

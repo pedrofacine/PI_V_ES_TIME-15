@@ -2,6 +2,7 @@
 Rotas para criação e consulta de jobs de processamento.
 Fluxo: Upload vídeo → cria Video → cria ProcessingJob → roda ML em background.
 """
+import traceback
 import uuid
 import threading
 from pathlib import Path
@@ -31,15 +32,17 @@ def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int):
     print(f"[pipeline] Iniciando job {job_id}") 
     
     ML_PATH = Path(__file__).resolve().parents[3] / "ml"
+    ML_FOOTBALL_PATH = ML_PATH / "football_analysis"
 
-    if str(ML_PATH) not in sys.path:
-        sys.path.append(str(ML_PATH))
-    
+    for path in (ML_PATH, ML_FOOTBALL_PATH):
+        if str(path) not in sys.path:
+            sys.path.insert(0, str(path))
+
     try:
         from scripts.process_video import process_video
         print(f"[pipeline] process_video importado OK")
     except Exception as e:
-        print(f"[pipeline] ERRO ao importar process_video: {e}")
+        print(traceback.format_exc())
         return
 
     from app.database import get_session as _get_session
