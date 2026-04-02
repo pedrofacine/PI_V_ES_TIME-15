@@ -192,6 +192,7 @@ def process_video(
     clip_start_frame = 0
     gap_counter      = 0
     tracking_frame   = frame_count - 1
+    target_id:       int | None = None
 
     while True:
         ret, frame = cap.read()
@@ -229,34 +230,33 @@ def process_video(
                 "bbox": [x1, y1, x2, y2]
             })
 
+        # Inicializa target_id no primeiro frame de tracking usando IoU com a box encontrada
+        if target_id is None and target_box is not None:
+            for player in players:
+                if _iou(player["bbox"], target_box) >= IOU_THRESHOLD:
+                    target_id = player["track_id"]
+                    break
 
-    found = False
+        found = False
 
-    target_id = None
+        for player in players:
+            track_id = player["track_id"]
+            x1, y1, x2, y2 = player["bbox"]
 
-    for player in players:
-        track_id = player["track_id"]
-        x1, y1, x2, y2 = player["bbox"]
-
-        box = [x1, y1, x2, y2]
-
-        # primeira vez: usa OCR pra achar o jogador
-        if target_box is None:
-            crop = frame[y1:y2, x1:x2]
-            numbers = _read_numbers(crop, reader)
-
-            if target_number in numbers:
-                target_box = box
-                target_id  = track_id
-                found = True
-                break
-
-        # depois: só segue pelo ID
-        else:
-            if track_id == target_id:
-                target_box = box
-                found = True
-                break
+            if target_id is not None:
+                if track_id == target_id:
+                    target_box = [x1, y1, x2, y2]
+                    found = True
+                    break
+            else:
+                # fallback: OCR sobre cada player (raramente usado quando já achou no primeiro estágio)
+                crop = frame[y1:y2, x1:x2]
+                numbers = _read_numbers(crop, reader)
+                if target_number in numbers:
+                    target_id = track_id
+                    target_box = [x1, y1, x2, y2]
+                    found = True
+                    break
 
         if found:
             gap_counter = 0
