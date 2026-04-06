@@ -16,6 +16,13 @@ from app.database import get_session
 from app.models import User, Video, ProcessingJob, Clip
 from app.core.auth import get_current_user
 
+import json
+import time
+from fastapi.responses import StreamingResponse
+from fastapi import Query
+from app.database import get_session as _get_session
+from app.models import ProcessingJob
+
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 UPLOAD_DIR = Path("uploads/videos")
@@ -24,62 +31,147 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+@router.get("/{job_id}/stream")
+@router.get("/{job_id}/stream")
+def stream_job_status(
+    job_id: uuid.UUID,
+    token: str = Query(...),
+    session: Session = Depends(get_session),
+):
+    def event_generator():
+        while True:
+            # 1. LIMPEZA DE CACHE (Força a leitura dos dados reais do banco)
+            session.expire_all()
+            
+            # 2. Busca o status atual no banco
+            job = session.get(ProcessingJob, job_id)
+            if not job:
+                yield f"data: {json.dumps({'error': 'Job não encontrado'})}\n\n"
+                break
+            
+            clips = session.exec(select(Clip).where(Clip.job_id == job_id)).all()
+            
+            payload = {
+                "job_id": str(job.id),
+                "status": job.status,
+                "clips": [
+                    {
+                        "id": str(c.id),
+                        "file_url": f"/uploads/clips/{job_id}/{Path(c.storage_path).name}",
+                        "start_timestamp": c.start_timestamp,
+                        "end_timestamp": c.end_timestamp,
+                        "duration": round(c.end_timestamp - c.start_timestamp, 2),
+                    }
+                    for c in clips
+                ]
+            }
 
+            yield f"data: {json.dumps(payload)}\n\n"
+
+            if job.status in ["COMPLETED", "ERROR"]:
+                break
+            
+            time.sleep(2.0)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int):
     import sys
+    import traceback
+    from datetime import datetime, timezone
     
     print(f"[pipeline] Iniciando job {job_id}") 
-    
-    ML_PATH = Path(__file__).resolve().parents[3] / "ml"
-    ML_SCRIPTS_PATH = ML_PATH / "scripts"
 
-    for path in (ML_PATH, ML_SCRIPTS_PATH):
-        if str(path) not in sys.path:
-            sys.path.insert(0, str(path))
+    PROJECT_ROOT = Path(__file__).resolve().parents[3]
+    ML_ROOT = PROJECT_ROOT / "ml"
+
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    if str(ML_ROOT) not in sys.path:
+        sys.path.insert(0, str(ML_ROOT))
+
+    # 1. FUNÇÃO AUXILIAR: Abre e fecha a sessão rapidamente apenas para atualizar status
+    def update_job_status(status: str):
+        from app.database import get_session
+        from app.models import ProcessingJob
+        session = next(get_session())
+        try:
+            job = session.get(ProcessingJob, job_id)
+            if job:
+                job.status = status
+                job.updated_at = datetime.now(timezone.utc)
+                session.commit()
+        except Exception as e:
+            session.rollback()
+            print(f"[db error] Falha ao atualizar status: {e}")
+        finally:
+            session.close()
 
     try:
-        from scripts.process_video import process_video
-        print(f"[pipeline] process_video importado OK")
-    except Exception as e:
-        print(traceback.format_exc())
-        return
+        try:
+            from ml.scripts.process_video import process_video
+            print(f"[pipeline] process_video importado OK")
+        except Exception:
+            print("ERRO AO IMPORTAR process_video")
+            print(traceback.format_exc())
+            update_job_status("ERROR")
+            return
 
-    from app.database import get_session as _get_session
-    output_dir = str(CLIPS_DIR / str(job_id))
-    session: Session = next(_get_session())
+        # Atualiza status inicial (Sessão rápida)
+        update_job_status("SCANNING")
 
-    try:
-        job = session.get(ProcessingJob, job_id)
-        job.status     = "TRACKING"
-        job.updated_at = datetime.now(timezone.utc)
-        session.commit()
+        # 2. CALLBACKS ISOLADOS: Cada callback abre e fecha sua própria conexão
+        def set_status_to_tracking():
+            print(f"[pipeline] Callback: Jogador encontrado. Mudando para TRACKING.")
+            update_job_status("TRACKING")
 
+        def save_clip_to_db(clip_dict):
+            from app.database import get_session
+            from app.models import Clip, ProcessingJob
+            
+            session = next(get_session())
+            try:
+                new_clip = Clip(
+                    job_id          = job_id,
+                    storage_path    = clip_dict["path"],
+                    start_timestamp = clip_dict["start_ts"],
+                    end_timestamp   = clip_dict["end_ts"],
+                )
+                session.add(new_clip)
+                
+                # Atualiza o timestamp do job para forçar o frontend (via SSE) a perceber a mudança
+                job_to_update = session.get(ProcessingJob, job_id)
+                if job_to_update:
+                    job_to_update.updated_at = datetime.now(timezone.utc)
+                
+                session.commit()
+                print(f"[pipeline] Clipe persistido e enviado ao front: {clip_dict['path']}")
+            except Exception as e:
+                session.rollback()
+                print(f"[db error] Falha ao salvar clipe: {e}")
+            finally:
+                session.close()
+
+        # 3. CHAMADA PRINCIPAL: Executa a IA. Não há nenhuma conexão de BD aberta vazando aqui!
         print(f"[pipeline] Chamando process_video...")
-        clip_data = process_video(video_path, target_number, output_dir)
+        output_dir = str(CLIPS_DIR / str(job_id))
+        
+        process_video(
+            video_path=video_path, 
+            target_number=target_number, 
+            output_dir=output_dir,
+            on_player_found=set_status_to_tracking,
+            on_clip_generated=save_clip_to_db
+        )
 
-        for item in clip_data:
-            clip = Clip(
-                job_id          = job_id,
-                storage_path    = item["path"],
-                start_timestamp = item["start_ts"],
-                end_timestamp   = item["end_ts"],
-            )
-            session.add(clip)
+        # Atualiza final (Sessão rápida)
+        update_job_status("COMPLETED")
+        print(f"[pipeline] Job {job_id} concluído.")
 
-        job.status     = "COMPLETED"
-        job.updated_at = datetime.now(timezone.utc)
-        session.commit()
-        print(f"[pipeline] Job {job_id} concluído com {len(clip_data)} clipes")
-
-    except Exception as e:
-        job = session.get(ProcessingJob, job_id)
-        job.status     = "ERROR"
-        job.updated_at = datetime.now(timezone.utc)
-        session.commit()
-        print(f"[pipeline error] {e}")
-    finally:
-        session.close()
+    except Exception:
+        print(f"[pipeline error] Falha durante a execução:")
+        print(traceback.format_exc())
+        update_job_status("ERROR")
 
 
 

@@ -4,7 +4,7 @@ import { ClipCard, ClipData } from "../../components/clip-card/ClipCard";
 import { Grid } from "../../components/grid/Grid";
 import './ProcessingClips.css';
 import { DownloadCloud, RefreshCw } from "lucide-react";
-import { getJobStatus, JobStatus, ClipResult } from "../../services/api";
+import { getJobStatus, JobStatus, ClipResult, getToken } from "../../services/api";
 
 const POLL_INTERVAL   = 3000;
 
@@ -21,6 +21,14 @@ function toClipData(clip: ClipResult, index: number): ClipData {
   };
 }
 
+const skeletonClip: ClipData = {
+  id:           "skeleton-processing",
+  title:        "Gerando clipe...",
+  status:       "generating",
+  thumbnailUrl: undefined,
+  duration:     "--:--",
+};
+
 export default function ProcessingClipsPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,23 +43,44 @@ export default function ProcessingClipsPage() {
       return;
     }
 
-    const poll = async () => {
+    const token = getToken();
+    if (!token) {
+      setError("Usuário não autenticado.");
+      return;
+    }
+
+    // Cria a conexão SSE, passando o token via Query String
+    const streamUrl = `${import.meta.env.VITE_API_PATH}/jobs/${jobId}/stream?token=${token}`;
+    const eventSource = new EventSource(streamUrl);
+
+    // Escuta as mensagens enviadas pelo servidor
+    eventSource.onmessage = (event) => {
       try {
-        const data = await getJobStatus(jobId);
+        const data: JobStatus = JSON.parse(event.data);
+        console.log("[SSE Job Status]:", data);
+        
         setJob(data);
+
+        // Se finalizou ou deu erro, encerra a conexão para liberar recursos
         if (data.status === "COMPLETED" || data.status === "ERROR") {
-          clearInterval(interval);
+          eventSource.close();
         }
-      } catch (err: any) {
-        setError(err.message);
-        clearInterval(interval);
+      } catch (err) {
+        console.error("Erro ao fazer parse dos dados SSE:", err);
       }
     };
 
-    poll(); // chamada imediata ao entrar na página
-    const interval = setInterval(poll, POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [jobId]);
+    // Tratamento de interrupções de conexão
+    eventSource.onerror = () => {
+      setError("Conexão com o servidor perdida. O processamento pode continuar em background.");
+      eventSource.close();
+    };
+
+    // Cleanup function: garante que a conexão fecha se o componente for desmontado
+    return () => {
+      eventSource.close();
+    };
+  }, [jobId, navigate]);
 
   const isDone = job?.status === "COMPLETED";
   const isError = job?.status === "ERROR";
@@ -106,6 +135,13 @@ export default function ProcessingClipsPage() {
               clip={toClipData(clip, i)}
             />
           ))}
+          {job?.status === "TRACKING" &&
+            <ClipCard
+              key={skeletonClip.id}
+              clip={skeletonClip}
+            />
+
+          }
         </Grid>
 
         {!isDone && clips.length === 0 && !error && (

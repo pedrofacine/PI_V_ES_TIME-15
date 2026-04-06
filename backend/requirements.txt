@@ -44,7 +44,7 @@ rich==14.3.3
 rich-toolkit==0.19.7
 rignore==0.7.6
 sentry-sdk==2.53.0
-setuptools==82.0.0
+setuptools==69.5.1
 shellingham==1.5.4
 SQLAlchemy==2.0.48
 sqlmodel==0.0.37
