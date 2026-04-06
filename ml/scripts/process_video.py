@@ -50,6 +50,32 @@ def _read_numbers(crop: np.ndarray, reader: easyocr.Reader) -> list[int]:
     results = reader.readtext(crop, allowlist="0123456789", detail=0)
     return [int(str(text).strip()) for text in results if str(text).strip().isdigit()]
 
+def _is_ball_near_player(player_box: list[float], ball_box: list[float]) -> bool:
+    if _iou(player_box, ball_box) > 0.01:
+        return True
+
+    px1, py1, px2, py2 = player_box
+    width = px2 - px1
+    height = py2 - py1
+    pad = 0.2
+    expanded_box = [px1 - width * pad, py1 - height * pad, px2 + width * pad, py2 + height * pad]
+
+    bx1, by1, bx2, by2 = ball_box
+    ball_center = ((bx1 + bx2) / 2.0, (by1 + by2) / 2.0)
+
+    if (
+        expanded_box[0] <= ball_center[0] <= expanded_box[2]
+        and expanded_box[1] <= ball_center[1] <= expanded_box[3]
+    ):
+        return True
+
+    dx = max(expanded_box[0] - ball_center[0], 0, ball_center[0] - expanded_box[2])
+    dy = max(expanded_box[1] - ball_center[1], 0, ball_center[1] - expanded_box[3])
+    distance_sq = dx * dx + dy * dy
+    threshold = max(width, height) * 0.15
+    return distance_sq <= threshold * threshold
+
+
 def _save_clip(frames: list, out_path: str, fps: float, size: tuple[int, int]) -> None:
     fourcc = cv2.VideoWriter_fourcc(*"mp4v") # type: ignore
     out = cv2.VideoWriter(out_path, fourcc, fps, size)
@@ -96,12 +122,15 @@ def process_video(
         frame_count += 1
         if frame_count % FRAME_SKIP != 0: continue
 
-        results = model(frame, verbose=False, conf=0.4) # Confiança p/ CPU
+        results = model(frame, classes=[0], verbose=False, conf=0.4) # Person-only detections
         
-        for box in results[0].boxes.xyxy:
+        for box, cls, conf in zip(results[0].boxes.xyxy, results[0].boxes.cls, results[0].boxes.conf):
+            if int(cls) != 0 or float(conf) < 0.4:
+                continue
             x1, y1, x2, y2 = map(int, box)
-            if (x2 - x1) < MIN_W or (y2 - y1) < MIN_H: continue
-            
+            if (x2 - x1) < MIN_W or (y2 - y1) < MIN_H:
+                continue
+
             crop = frame[y1:y2, x1:x2]
             if target_number in _read_numbers(crop, reader):
                 target_box = [x1, y1, x2, y2]
@@ -131,12 +160,23 @@ def process_video(
         frame = _resize_frame(frame)
         tracking_frame += 1
         
-        results = model(frame, verbose=False, conf=0.4)
+        results = model(frame, classes=[0, 32], verbose=False, conf=0.4)
         
         detections = []
-        for box in results[0].boxes.xyxy:
+        balls = []
+        for box, cls, conf in zip(results[0].boxes.xyxy, results[0].boxes.cls, results[0].boxes.conf):
+            cls_i = int(cls)
+            conf_f = float(conf)
+            if conf_f < 0.4:
+                continue
+
             x1, y1, x2, y2 = map(float, box)
-            detections.append([[x1, y1, x2-x1, y2-y1], 0.9, 0])
+            if cls_i == 0:
+                if (x2 - x1) < MIN_W or (y2 - y1) < MIN_H:
+                    continue
+                detections.append([[x1, y1, x2-x1, y2-y1], conf_f, 0])
+            elif cls_i == 32:
+                balls.append([x1, y1, x2, y2])
         
         tracks = tracker.update(detections, frame)
         players = [{"track_id": t[4], "bbox": [t[0], t[1], t[2], t[3]]} for t in tracks]
@@ -165,9 +205,17 @@ def process_video(
                         found = True
                         break
 
-        if found:
+        contact = False
+        if found and balls:
+            for ball_box in balls:
+                if _is_ball_near_player(target_box, ball_box):
+                    contact = True
+                    break
+
+        if contact:
             gap_counter = 0
-            if not current_clip: clip_start_frame = tracking_frame
+            if not current_clip:
+                clip_start_frame = tracking_frame
             current_clip.append(frame) # Mantém referência em memória
         else:
             gap_counter += 1
