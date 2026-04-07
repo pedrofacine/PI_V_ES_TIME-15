@@ -161,7 +161,8 @@ def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int):
             target_number=target_number, 
             output_dir=output_dir,
             on_player_found=set_status_to_tracking,
-            on_clip_generated=save_clip_to_db
+            on_clip_generated=save_clip_to_db,
+            debug=True,
         )
 
         # Atualiza final (Sessão rápida)
