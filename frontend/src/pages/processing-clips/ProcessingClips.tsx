@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom"; 
 import { ClipCard, ClipData } from "../../components/clip-card/ClipCard";
 import { Grid } from "../../components/grid/Grid";
 import './ProcessingClips.css';
 import { DownloadCloud, RefreshCw } from "lucide-react";
-import { getJobStatus, JobStatus, ClipResult, getToken } from "../../services/api";
-
-const POLL_INTERVAL   = 3000;
+import { JobStatus, ClipResult, getToken } from "../../services/api"; // getJobStatus removido pois usamos SSE
 
 // Converte ClipResult (backend) → ClipData (ClipCard)
 function toClipData(clip: ClipResult, index: number): ClipData {
@@ -30,14 +28,15 @@ const skeletonClip: ClipData = {
 };
 
 export default function ProcessingClipsPage() {
-  const location = useLocation();
+  // 1. Extração do ID diretamente da URL
+  const { jobId } = useParams<{ jobId: string }>(); 
   const navigate = useNavigate();
-  const jobId    = (location.state as any)?.jobId as string | undefined;
 
   const [job, setJob]     = useState<JobStatus | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // 2. Validação de segurança: se o usuário entrar na rota sem ID, volta para o início
     if (!jobId) {
       navigate("/");
       return;
@@ -49,19 +48,25 @@ export default function ProcessingClipsPage() {
       return;
     }
 
-    // Cria a conexão SSE, passando o token via Query String
+    // 3. Conexão SSE reativa com o backend recuperando os dados baseados na URL
     const streamUrl = `${import.meta.env.VITE_API_PATH}/jobs/${jobId}/stream?token=${token}`;
     const eventSource = new EventSource(streamUrl);
 
-    // Escuta as mensagens enviadas pelo servidor
     eventSource.onmessage = (event) => {
       try {
         const data: JobStatus = JSON.parse(event.data);
         console.log("[SSE Job Status]:", data);
         
+        // Trata erro customizado vindo pelo SSE
+        if ((data as any).error) {
+          setError((data as any).error);
+          eventSource.close();
+          return;
+        }
+
         setJob(data);
 
-        // Se finalizou ou deu erro, encerra a conexão para liberar recursos
+        // Se finalizou ou deu erro de processamento, fecha a conexão
         if (data.status === "COMPLETED" || data.status === "ERROR") {
           eventSource.close();
         }
@@ -70,18 +75,17 @@ export default function ProcessingClipsPage() {
       }
     };
 
-    // Tratamento de interrupções de conexão
     eventSource.onerror = () => {
       setError("Conexão com o servidor perdida. O processamento pode continuar em background.");
       eventSource.close();
     };
 
-    // Cleanup function: garante que a conexão fecha se o componente for desmontado
     return () => {
       eventSource.close();
     };
   }, [jobId, navigate]);
 
+  // Restante do código de renderização do JSX permanece rigorosamente o mesmo...
   const isDone = job?.status === "COMPLETED";
   const isError = job?.status === "ERROR";
   const clips  = job?.clips ?? [];

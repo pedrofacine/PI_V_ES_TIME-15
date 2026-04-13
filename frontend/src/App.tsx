@@ -26,7 +26,7 @@ export default function App() {
           <Route index element={<SignUp/>} />
         </Route>
 
-        <Route path='/processing-clips' element={<MainLayout/>}>
+        <Route path='/processing-clips/:jobId' element={<MainLayout/>}>
           <Route index element={<ProcessingClipsPage/>} />
         </Route>
 

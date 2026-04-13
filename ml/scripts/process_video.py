@@ -7,15 +7,17 @@ from collections import Counter, defaultdict
 from ultralytics import YOLO
 from scripts.trackers.tracker import PlayerTracker
 from typing import Callable
+import time 
 
 OCR_INTERVAL       = 5
+FRAME_SKIP         = 2
 MIN_W, MIN_H       = 30, 50
-MIN_CLIP_FRAMES    = 15
-GAP_TOLERANCE      = 30
+PLAYER_CLS         = [0]
+BALL_CLS           = 32 
+MIN_CLIP_FRAMES    = 30
+GAP_TOLERANCE      = 60
 PROCESS_WIDTH      = 640
 MIN_OCR_VOTES      = 2
-PLAYER_CLS         = [0]
-BALL_CLS           = 32
 
 ML_ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,27 +44,49 @@ def _torso_crop(frame: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.nda
     return frame[max(0, torso_y1):min(fh, torso_y2), max(0, x1):min(fw, x2)]
 
 
-def _read_numbers(crop: np.ndarray, reader: easyocr.Reader) -> list[int]:
-    """Multi-strategy OCR: color + CLAHE, results merged."""
+def _read_numbers(crop: np.ndarray, reader: easyocr.Reader, target_number: int) -> list[int]:
+    """Single-strategy OCR: Gaussian Blur + CLAHE com Filtro de Confiança."""
     h, w = crop.shape[:2]
     if h < 5 or w < 5:
         return []
 
+    # Amplia a imagem
     big = cv2.resize(crop, (w * 3, h * 3), interpolation=cv2.INTER_CUBIC)
     results: set[int] = set()
 
-    for text in reader.readtext(big, allowlist="0123456789", detail=0):
-        t = str(text).strip()
-        if t.isdigit():
-            results.add(int(t))
-
     gray = cv2.cvtColor(big, cv2.COLOR_BGR2GRAY)
+    
+    # Suavização Gaussiana para "passar a ferro" as rugas e pixels borrados
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4, 4))
-    enhanced = clahe.apply(gray)
-    for text in reader.readtext(enhanced, allowlist="0123456789", detail=0):
+    enhanced = clahe.apply(blur)
+    
+    # detail=1 pede ao EasyOCR para retornar a "certeza" da leitura
+    detections = reader.readtext(enhanced, allowlist="0123456789", detail=1)
+    
+    # Substituímos 'bbox' por '_' para silenciar o aviso de variável não utilizada
+    for _, text, prob in detections:
+        # Cast explícito para garantir ao linter que é um número
+        try:
+            confidence = float(prob)
+        except (ValueError, TypeError):
+            continue # Ignora se a biblioteca devolver algo bizarro
+
+        # Se a IA tem menos de 40% de certeza, é lixo (ruga/sombra). Ignora.
+        if confidence < 0.40:
+            continue
+
         t = str(text).strip()
         if t.isdigit():
-            results.add(int(t))
+            val = int(t)
+
+            if val == 0 and target_number != 0:
+                continue
+            
+            # Mantém a nossa Heurística de tamanho
+            if 1 <= len(t) <= 2 or val == target_number:
+                results.add(val)
 
     return list(results)
 
@@ -109,8 +133,8 @@ def _save_clip(frames: list, out_path: str, fps: float, size: tuple[int, int]) -
     out.release()
 
 
-def _parse_detections(results, min_conf: float = 0.3) -> tuple[list, list]:
-    """Split YOLO results into DeepSort-compatible detections and ball boxes."""
+def _parse_detections(results, player_classes: list[int], ball_class: int, min_conf: float = 0.3) -> tuple[list, list]:
+    """Split YOLO results using dynamic classes."""
     detections = []
     balls = []
     for box, cls, conf in zip(
@@ -121,10 +145,10 @@ def _parse_detections(results, min_conf: float = 0.3) -> tuple[list, list]:
         if conf_f < min_conf:
             continue
         x1, y1, x2, y2 = map(float, box)
-        if cls_i in PLAYER_CLS:
+        if cls_i in player_classes:
             if (x2 - x1) >= MIN_W and (y2 - y1) >= MIN_H:
                 detections.append([[x1, y1, x2 - x1, y2 - y1], conf_f, cls_i])
-        elif cls_i == BALL_CLS:
+        elif cls_i == ball_class:
             balls.append([x1, y1, x2, y2])
     return detections, balls
 
@@ -140,16 +164,43 @@ def process_video(
     debug: bool = False,
 ) -> list[dict]:
 
+    pipeline_start_time = time.time()
+
     os.makedirs(output_dir, exist_ok=True)
     debug_dir: str | None = None
     if debug:
-        debug_dir = os.path.join(output_dir, "debug")
+        debug_dir = os.path.join(output_dir, "debug_ocr")
         os.makedirs(debug_dir, exist_ok=True)
 
     print(f"[GPU] {'Ativada' if USE_GPU else 'Desativada — usando CPU'}")
 
-    model = YOLO("yolov8n.pt")
-    print(f"[model] yolov8n.pt | person={PLAYER_CLS} ball={BALL_CLS}")
+    # ==========================================================
+    # CARREGAMENTO DO MODELO E AUTO-DISCOVERY DE CLASSES
+    # ==========================================================
+    model = YOLO("yolov8s.pt")
+    player_classes = PLAYER_CLS
+    ball_class = BALL_CLS
+    yolo_classes = player_classes + [ball_class]
+    
+    print(f"[model] yolov8s.pt | person_ids={player_classes} ball_id={ball_class}")
+    
+    # Descobre automaticamente os IDs vasculhando o dicionário interno do modelo
+    player_classes = []
+    ball_class = None
+    
+    for class_id, class_name in model.names.items():
+        name_lower = class_name.lower()
+        if "player" in name_lower or "person" in name_lower or "goalkeeper" in name_lower:
+            player_classes.append(class_id)
+        elif "ball" in name_lower or "sports ball" in name_lower:
+            ball_class = class_id
+
+    # Fallback de segurança se os nomes não forem padrões
+    if not player_classes: player_classes = [0]
+    if ball_class is None: ball_class = 32
+    
+    yolo_classes = player_classes + [ball_class]
+    print(f"[model] best.pt Auto-Mapped | person_ids={player_classes} ball_id={ball_class}")
 
     reader = easyocr.Reader(["en"], gpu=USE_GPU)
 
@@ -169,60 +220,78 @@ def process_video(
 
     cap.set(cv2.CAP_PROP_POS_MSEC, start_ts * 1000)
 
-    yolo_classes = PLAYER_CLS + [BALL_CLS]
-
     # ==========================================================
-    # PASSO 1 — MAPEAMENTO: rastrear todos, OCR em todos (video inteiro)
+    # PASSO 1 — EXTRAÇÃO DE METADADOS
     # ==========================================================
-    print(f"[1/3] Mapeando jogadores ({total_frames} frames, video inteiro)...")
-
-    tracker_map = PlayerTracker()
+    print(f"[1/4] Extraindo metadados com IA ({total_frames} frames)...")
+    
+    tracker = PlayerTracker()
     jersey_map: dict[str, Counter] = defaultdict(Counter)
+    video_metadata: dict[int, dict] = {}
+    
     frame_idx = 0
+    start_frame_offset = int(start_ts * fps)
 
     while True:
         ret, frame_orig = cap.read()
-        if not ret:
+        if not ret: break
+        
+        current_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
+        if end_ts > 0 and current_msec > end_ts * 1000:
             break
-        if end_ts > 0 and cap.get(cv2.CAP_PROP_POS_MSEC) > end_ts * 1000:
-            break
+        
+        if frame_idx % FRAME_SKIP != 0:
+            if frame_idx > 0 and (frame_idx - 1) in video_metadata:
+                video_metadata[frame_idx] = video_metadata[frame_idx - 1]
+            frame_idx += 1
+            continue
 
         frame = _resize_frame(frame_orig)
         scale = frame_orig.shape[1] / frame.shape[1]
+
+        results = model(frame, classes=yolo_classes, verbose=False, conf=0.3, half=USE_GPU)
+        detections, balls = _parse_detections(results, player_classes, ball_class)
+        tracks = tracker.update(detections, frame)
+
+        # Conversão segura para numéricos puros (Evita vazamento de memória com DeepSORT)
+        safe_tracks = [[float(l), float(t), float(r), float(b), str(tid)] for l, t, r, b, tid in tracks]
+        safe_balls = [[float(x1), float(y1), float(x2), float(y2)] for x1, y1, x2, y2 in balls]
+
+        video_metadata[frame_idx] = {
+            "tracks": safe_tracks,
+            "balls": safe_balls
+        }
+
+        if frame_idx % OCR_INTERVAL == 0:
+            for l, t, r, b, track_id in tracks:
+                ol, ot = int(l * scale), int(t * scale)
+                or_, ob = int(r * scale), int(b * scale)
+
+                crop = _torso_crop(frame_orig, ol, ot, or_, ob)
+                if crop.shape[0] >= 10 and crop.shape[1] >= 10:
+                    numbers = _read_numbers(crop, reader, target_number)
+
+                    # [OTIMIZAÇÃO I/O] Verifica se há números ANTES de iterar e salvar imagens
+                    if numbers:
+                        for n in numbers:
+                            jersey_map[str(track_id)][n] += 1
+
+                        if debug and debug_dir:
+                            # Constrói o nome dinâmico para facilitar o visual debugging
+                            nums_str = "_".join(map(str, numbers))
+                            img_filename = f"ocr_f{frame_idx:05d}_t{track_id}_leu_{nums_str}.png"
+                            
+                            cv2.imwrite(os.path.join(debug_dir, img_filename), crop)
+                            print(f"  [MAP] frame={frame_idx} track={track_id} leu={numbers}")
+
         frame_idx += 1
 
-        results = model(frame, classes=yolo_classes, verbose=False, conf=0.3)
-        detections, _ = _parse_detections(results)
-        tracks = tracker_map.update(detections, frame)
-
-        if frame_idx % OCR_INTERVAL != 0:
-            continue
-
-        for l, t, r, b, track_id in tracks:
-            ol, ot = int(l * scale), int(t * scale)
-            or_, ob = int(r * scale), int(b * scale)
-
-            crop = _torso_crop(frame_orig, ol, ot, or_, ob)
-            if crop.shape[0] < 10 or crop.shape[1] < 10:
-                continue
-
-            numbers = _read_numbers(crop, reader)
-
-            for n in numbers:
-                jersey_map[track_id][n] += 1
-
-            if debug and debug_dir:
-                cv2.imwrite(
-                    os.path.join(debug_dir, f"map_f{frame_idx}_t{track_id}.png"),
-                    crop,
-                )
-                if numbers:
-                    print(f"  [MAP] frame={frame_idx} track={track_id} leu={numbers}")
+    total_processed_frames = frame_idx
 
     # ==========================================================
-    # RESOLVER MAPA DE CAMISAS
+    # PASSO 2 - RESOLUÇÃO DE IDs
     # ==========================================================
-    print("[2/3] Resolvendo mapa de camisas...")
+    print("[2/4] Resolvendo Identidades dos Jogadores...")
 
     resolved: dict[str, int] = {}
     for tid, counter in jersey_map.items():
@@ -247,132 +316,115 @@ def process_video(
 
     if not target_track_ids:
         all_nums = sorted(set(resolved.values())) if resolved else []
-        print(f"  [MAP] Números encontrados: {all_nums}")
-        raise ValueError(
-            f"Jogador #{target_number} não encontrado. Números detectados: {all_nums}"
-        )
+        raise ValueError(f"Jogador #{target_number} não encontrado. Identificados: {all_nums}")
 
-    print(f"    ✓ Jogador #{target_number} -> track_ids: {target_track_ids}")
+    print(f"    ✓ Jogador #{target_number} vinculado aos IDs: {target_track_ids}")
     if on_player_found:
         on_player_found()
 
     # ==========================================================
-    # PASSO 2 — GERAR CLIPES (vídeo inteiro, tracker fresco)
+    # PASSO 3 — CÁLCULO DE INTERVALOS (Com Degradação Graciosa)
     # ==========================================================
-    print("[3/3] Gerando clipes...")
+    print("[3/4] Calculando intervalos de ação...")
+    
+    def _calcular_intervalos(exigir_bola: bool) -> list[tuple[int, int]]:
+        intervalos: list[tuple[int, int]] = []
+        clip_start: int | None = None
+        gap_count = 0
 
-    cap.set(cv2.CAP_PROP_POS_MSEC, start_ts * 1000)
-    tracker_clip = PlayerTracker()
-    clip_jersey: dict[str, Counter] = defaultdict(Counter)
-    active_targets: set[str] = set()
+        for f_idx in range(total_processed_frames):
+            frame_data = video_metadata.get(f_idx)
+            if not frame_data: continue
 
-    current_clip: list[np.ndarray] = []
-    clip_start_frame = 0
-    gap_counter = 0
-    clip_index = 1
-    results_list: list[dict] = []
-    frame_idx = 0
-
-    while True:
-        ret, frame_orig = cap.read()
-        if not ret:
-            break
-        if end_ts > 0 and cap.get(cv2.CAP_PROP_POS_MSEC) > end_ts * 1000:
-            break
-
-        frame = _resize_frame(frame_orig)
-        scale = frame_orig.shape[1] / frame.shape[1]
-        frame_idx += 1
-
-        results = model(frame, classes=yolo_classes, verbose=False, conf=0.3)
-        detections, balls = _parse_detections(results)
-        tracks = tracker_clip.update(detections, frame)
-
-        if frame_idx % OCR_INTERVAL == 0:
-            for l, t, r, b, track_id in tracks:
-                if track_id in active_targets:
-                    continue
-
-                ol, ot = int(l * scale), int(t * scale)
-                or_, ob = int(r * scale), int(b * scale)
-                crop = _torso_crop(frame_orig, ol, ot, or_, ob)
-                if crop.shape[0] < 10 or crop.shape[1] < 10:
-                    continue
-
-                numbers = _read_numbers(crop, reader)
-                for n in numbers:
-                    clip_jersey[track_id][n] += 1
-
-                if target_number in numbers:
-                    active_targets.add(track_id)
-                    if debug:
-                        print(
-                            f"  [CLIP] Identified track {track_id} "
-                            f"as #{target_number} at frame {frame_idx}"
-                        )
-                elif clip_jersey[track_id].get(target_number, 0) >= MIN_OCR_VOTES:
-                    active_targets.add(track_id)
-                    if debug:
-                        print(
-                            f"  [CLIP] Confirmed track {track_id} "
-                            f"as #{target_number} by votes at frame {frame_idx}"
-                        )
-
-        found_target = False
-        target_box: list[float] | None = None
-        for l, t, r, b, track_id in tracks:
-            if track_id in active_targets:
-                target_box = [float(l), float(t), float(r), float(b)]
-                found_target = True
-                break
-
-        contact = False
-        if found_target and target_box and balls:
-            for ball_box in balls:
-                if _is_ball_near_player(target_box, ball_box):
-                    contact = True
+            target_box: list[float] | None = None
+            for l, t, r, b, tid in frame_data["tracks"]:
+                if str(tid) in target_track_ids:
+                    target_box = [float(l), float(t), float(r), float(b)]
                     break
 
-        if contact:
-            gap_counter = 0
-            if not current_clip:
-                clip_start_frame = frame_idx
-            current_clip.append(frame)
-        else:
-            gap_counter += 1
-            if gap_counter > GAP_TOLERANCE:
-                if len(current_clip) >= MIN_CLIP_FRAMES:
-                    start_s = clip_start_frame / fps
-                    end_s = frame_idx / fps
-                    clip_path = os.path.join(
-                        output_dir,
-                        f"clip_{clip_index}_{target_number}_{int(start_s)}-{int(end_s)}.mp4",
-                    )
-                    _save_clip(current_clip, clip_path, fps, frame_size)
-                    clip_dict = {
-                        "path": clip_path,
-                        "start_ts": start_s,
-                        "end_ts": end_s,
-                    }
-                    results_list.append(clip_dict)
-                    if on_clip_generated:
-                        on_clip_generated(clip_dict)
-                    clip_index += 1
+            frame_ativo = False
+            if target_box:
+                if exigir_bola:
+                    if frame_data["balls"]:
+                        for ball_box in frame_data["balls"]:
+                            if _is_ball_near_player(target_box, ball_box):
+                                frame_ativo = True
+                                break
+                else:
+                    frame_ativo = True
 
-                current_clip.clear()
-                gap_counter = 0
+            if frame_ativo:
+                gap_count = 0
+                if clip_start is None:
+                    clip_start = f_idx
+            else:
+                if clip_start is not None:
+                    gap_count += 1
+                    if gap_count > GAP_TOLERANCE:
+                        if (f_idx - clip_start) >= MIN_CLIP_FRAMES:
+                            intervalos.append((clip_start, f_idx))
+                        clip_start = None
+                        gap_count = 0
 
-    if len(current_clip) >= MIN_CLIP_FRAMES:
-        start_s = clip_start_frame / fps
-        end_s = frame_idx / fps
-        clip_path = os.path.join(
-            output_dir, f"clip_{clip_index}_{target_number}.mp4"
-        )
-        _save_clip(current_clip, clip_path, fps, frame_size)
-        clip_dict = {"path": clip_path, "start_ts": start_s, "end_ts": end_s}
+        if clip_start is not None and (total_processed_frames - clip_start) >= MIN_CLIP_FRAMES:
+            intervalos.append((clip_start, total_processed_frames - 1))
+            
+        return intervalos
+
+    # 1. Tenta clipe com bola. 2. Se não achar, foca apenas na presença do jogador.
+    clip_intervals = _calcular_intervalos(exigir_bola=True)
+    if not clip_intervals:
+        print("    [!] Nenhuma interação com a bola encontrada. Usando Fallback de presença (Player Cam)...")
+        clip_intervals = _calcular_intervalos(exigir_bola=False)
+
+    # ==========================================================
+    # PASSO 4 — FASE DE I/O (Geração de Clipes Fatiados)
+    # ==========================================================
+    print(f"[4/4] Fatiando vídeo em {len(clip_intervals)} clipes...")
+    
+    results_list: list[dict] = []
+
+    # Adicionando margem antes e depois da jogada
+    PADDING_SECONDS = 2
+    padding_frames = int(PADDING_SECONDS + fps)
+    
+    for idx, (start_f, end_f) in enumerate(clip_intervals):
+        padded_start_f = max(0, start_f - padding_frames)
+        padded_end_f = min(total_processed_frames - 1, end_f + padding_frames)
+        
+        absolute_start_f = start_frame_offset + padded_start_f
+        cap.set(cv2.CAP_PROP_POS_FRAMES, absolute_start_f)
+        
+        clip_frames = []
+        for f in range(start_f, end_f + 1):
+            ret, frame_orig = cap.read()
+            if not ret: break
+            clip_frames.append(_resize_frame(frame_orig))
+            
+        start_s = padded_start_f / fps
+        end_s = padded_end_f / fps
+
+        clip_name = f"jogador_{target_number}_clipe_{idx+1}_{int(start_s)}s_a_{int(end_s)}s.mp4"
+        clip_path = os.path.join(output_dir, clip_name)
+        
+        _save_clip(clip_frames, clip_path, fps, frame_size)
+        
+        clip_dict = {
+            "path": clip_path,
+            "start_ts": start_s,
+            "end_ts": end_s,
+        }
         results_list.append(clip_dict)
-        if on_clip_generated:
-            on_clip_generated(clip_dict)
+        if on_clip_generated: on_clip_generated(clip_dict)
 
     cap.release()
+    pipeline_end_time = time.time()
+    elapsed_seconds = pipeline_end_time - pipeline_start_time
+    elapsed_minutes = elapsed_seconds / 60
+    
+    print(f"\n[MÉTRICAS] Performance do Pipeline:")
+    print(f"  -> Total de Frames Analisados: {total_frames}")
+    print(f"  -> Tempo Total de Execução: {elapsed_seconds:.2f} segundos ({elapsed_minutes:.2f} minutos)")
+    print(f"  -> Clipes Gerados: {len(results_list)}")
+    print("[Concluído] Pipeline finalizado com sucesso.")
     return results_list

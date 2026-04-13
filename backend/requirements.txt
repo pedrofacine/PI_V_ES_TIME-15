@@ -1,5 +1,8 @@
-# ML / YOLO tracking (vídeo)
+--extra-index-url https://download.pytorch.org/whl/cu118
+# ML / YOLO tracking e Visão Computacional
 torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
 ultralytics>=8.0.0
 opencv-python-headless>=4.8.0
 supervision>=0.18.0

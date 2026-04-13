@@ -25,11 +25,13 @@ from app.models import ProcessingJob
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
-UPLOAD_DIR = Path("uploads/videos")
-CLIPS_DIR  = Path("uploads/clips")
+BASE_DIR = Path(__file__).resolve().parents[2]
+
+UPLOAD_DIR = BASE_DIR / "uploads" / "videos"
+CLIPS_DIR  = BASE_DIR / "uploads" / "clips"
+
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 CLIPS_DIR.mkdir(parents=True, exist_ok=True)
-
 
 @router.get("/{job_id}/stream")
 @router.get("/{job_id}/stream")
@@ -189,6 +191,9 @@ async def create_job(
     video_id   = uuid.uuid4()
     safe_name  = Path(video.filename).name
     video_path = UPLOAD_DIR / f"{video_id}_{safe_name}"
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    
     content    = await video.read()
 
     with open(video_path, "wb") as f:

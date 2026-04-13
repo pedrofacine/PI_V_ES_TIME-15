@@ -229,7 +229,7 @@ export default function InputPage() {
                 timeRange[0], 
                 timeRange[1]
             );
-            navigate("/processing-clips", { state: { jobId: job_id } });
+            navigate(`/processing-clips/${job_id}`);
         } catch (err: any) {
             setError(err.message);
         } finally {
