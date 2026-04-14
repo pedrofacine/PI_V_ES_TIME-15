@@ -323,59 +323,48 @@ def process_video(
         on_player_found()
 
     # ==========================================================
-    # PASSO 3 — CÁLCULO DE INTERVALOS (Com Degradação Graciosa)
+    # PASSO 3 — LÓGICA TEMPORAL (Player Cam Definitivo)
     # ==========================================================
     print("[3/4] Calculando intervalos de ação...")
-    
-    def _calcular_intervalos(exigir_bola: bool) -> list[tuple[int, int]]:
-        intervalos: list[tuple[int, int]] = []
-        clip_start: int | None = None
-        gap_count = 0
 
-        for f_idx in range(total_processed_frames):
-            frame_data = video_metadata.get(f_idx)
-            if not frame_data: continue
+    target_presence_frames = set()
 
-            target_box: list[float] | None = None
-            for l, t, r, b, tid in frame_data["tracks"]:
-                if str(tid) in target_track_ids:
-                    target_box = [float(l), float(t), float(r), float(b)]
-                    break
+    # Coleta todos os frames onde o jogador aparece
+    for f_idx in range(total_processed_frames):
+        frame_data = video_metadata.get(f_idx)
+        if not frame_data:
+            continue
 
-            frame_ativo = False
-            if target_box:
-                if exigir_bola:
-                    if frame_data["balls"]:
-                        for ball_box in frame_data["balls"]:
-                            if _is_ball_near_player(target_box, ball_box):
-                                frame_ativo = True
-                                break
-                else:
-                    frame_ativo = True
+        for l, t, r, b, tid in frame_data["tracks"]:
+            if str(tid) in target_track_ids:
+                target_presence_frames.add(f_idx)
+                break
 
-            if frame_ativo:
-                gap_count = 0
-                if clip_start is None:
-                    clip_start = f_idx
+    # Ordena os frames
+    target_frames = sorted(list(target_presence_frames))
+
+    clip_intervals = []
+
+    if not target_frames:
+        print("    [!] O jogador não foi encontrado no vídeo.")
+    else:
+        current_start = target_frames[0]
+        current_end = target_frames[0]
+
+        for f in target_frames[1:]:
+            if f - current_end <= GAP_TOLERANCE:
+                current_end = f
             else:
-                if clip_start is not None:
-                    gap_count += 1
-                    if gap_count > GAP_TOLERANCE:
-                        if (f_idx - clip_start) >= MIN_CLIP_FRAMES:
-                            intervalos.append((clip_start, f_idx))
-                        clip_start = None
-                        gap_count = 0
+                if (current_end - current_start) >= MIN_CLIP_FRAMES:
+                    clip_intervals.append((current_start, current_end))
+                current_start = f
+                current_end = f
 
-        if clip_start is not None and (total_processed_frames - clip_start) >= MIN_CLIP_FRAMES:
-            intervalos.append((clip_start, total_processed_frames - 1))
-            
-        return intervalos
+        # último bloco
+        if (current_end - current_start) >= MIN_CLIP_FRAMES:
+            clip_intervals.append((current_start, current_end))
 
-    # 1. Tenta clipe com bola. 2. Se não achar, foca apenas na presença do jogador.
-    clip_intervals = _calcular_intervalos(exigir_bola=True)
-    if not clip_intervals:
-        print("    [!] Nenhuma interação com a bola encontrada. Usando Fallback de presença (Player Cam)...")
-        clip_intervals = _calcular_intervalos(exigir_bola=False)
+        print(f"    ✓ {len(clip_intervals)} blocos de ação encontrados (Modo Player Cam).")
 
     # ==========================================================
     # PASSO 4 — FASE DE I/O (Geração de Clipes Fatiados)
