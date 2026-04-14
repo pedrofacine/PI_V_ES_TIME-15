@@ -152,6 +152,48 @@ def _parse_detections(results, player_classes: list[int], ball_class: int, min_c
             balls.append([x1, y1, x2, y2])
     return detections, balls
 
+def _detectar_eventos_bola(
+    target_frames: list[int],
+    video_metadata: dict,
+    target_track_ids: set[str],
+    fps: float
+) -> list[dict]:
+
+    eventos = []
+    ultimo_evento_frame = -999
+
+    EVENT_GAP = int(fps * 1.0)  # 1 segundo entre eventos
+
+    for f_idx in target_frames:
+        frame_data = video_metadata.get(f_idx)
+        if not frame_data:
+            continue
+
+        target_box = None
+
+        for l, t, r, b, tid in frame_data["tracks"]:
+            if str(tid) in target_track_ids:
+                target_box = [l, t, r, b]
+                break
+
+        if not target_box:
+            continue
+
+        for ball_box in frame_data["balls"]:
+            if _is_ball_near_player(target_box, ball_box):
+
+                # evita spam de eventos
+                if f_idx - ultimo_evento_frame > EVENT_GAP:
+                    eventos.append({
+                        "type": "toque",
+                        "frame": f_idx,
+                        "time": f_idx / fps
+                    })
+                    ultimo_evento_frame = f_idx
+
+                break
+
+    return eventos
 
 def process_video(
     video_path: str,
@@ -343,6 +385,15 @@ def process_video(
     # Ordena os frames
     target_frames = sorted(list(target_presence_frames))
 
+    eventos_bola = _detectar_eventos_bola(
+                                            target_frames,
+                                            video_metadata,
+                                            target_track_ids,
+                                            fps
+                                        )
+
+    print(f"    ⚽ {len(eventos_bola)} interações com a bola detectadas.")
+
     clip_intervals = []
 
     if not target_frames:
@@ -396,12 +447,18 @@ def process_video(
         clip_name = f"jogador_{target_number}_clipe_{idx+1}_{int(start_s)}s_a_{int(end_s)}s.mp4"
         clip_path = os.path.join(output_dir, clip_name)
         
+        clip_events = [
+                        e for e in eventos_bola
+                        if start_f <= e["frame"] <= end_f
+                        ]
+        
         _save_clip(clip_frames, clip_path, fps, frame_size)
         
         clip_dict = {
             "path": clip_path,
             "start_ts": start_s,
             "end_ts": end_s,
+            "events": clip_events
         }
         results_list.append(clip_dict)
         if on_clip_generated: on_clip_generated(clip_dict)
