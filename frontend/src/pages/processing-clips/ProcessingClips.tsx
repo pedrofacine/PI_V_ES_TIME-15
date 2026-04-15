@@ -4,7 +4,7 @@ import { ClipCard, ClipData } from "../../components/clip-card/ClipCard";
 import { Grid } from "../../components/grid/Grid";
 import './ProcessingClips.css';
 import { DownloadCloud, RefreshCw } from "lucide-react";
-import { JobStatus, ClipResult, getToken } from "../../services/api"; // getJobStatus removido pois usamos SSE
+import { JobStatus, ClipResult, getToken, downloadClip } from "../../services/api"; // getJobStatus removido pois usamos SSE
 
 // Converte ClipResult (backend) → ClipData (ClipCard)
 function toClipData(clip: ClipResult, index: number): ClipData {
@@ -102,14 +102,14 @@ export default function ProcessingClipsPage() {
     }
   }
 
-  function handleDownloadAll() {
-    clips.forEach((clip) => {
-      const a  = document.createElement("a");
-      a.href     = `${import.meta.env.VITE_API_PATH}${clip.file_url}`;
-      a.download = `clip_${clip.id}.mp4`;
-      a.click();
+function handleDownloadAll() {
+    clips.forEach((clip, index) => {
+        const title = `CLIP#${String(index + 1).padStart(3, "0")}`;
+        downloadClip(clip.file_url, title).catch(err =>
+            console.error(`Erro ao baixar ${title}:`, err)
+        );
     });
-  }
+}
 
   return (
     <div className="page-container bg-gradient">
