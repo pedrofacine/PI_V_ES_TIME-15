@@ -198,3 +198,24 @@ export async function createJob(
 export async function getJobStatus(jobId: string): Promise<JobStatus> {
   return authRequest<JobStatus>(`/jobs/${jobId}`);
 }
+
+export async function downloadClip(fileUrl: string, filename: string): Promise<void> {
+  const token = getToken();
+
+  const res = await fetch(`${import.meta.env.VITE_API_PATH}${fileUrl}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok) throw new Error(`Erro ao baixar clipe: ${res.status}`);
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename.endsWith(".mp4") ? filename : `${filename}.mp4`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}

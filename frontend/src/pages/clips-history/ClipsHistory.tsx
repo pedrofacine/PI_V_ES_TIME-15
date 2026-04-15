@@ -5,7 +5,7 @@ import './ClipsHistory.css'
 import placeholderImg from '../../assets/placeholder.png';
 import { Search, ChevronDown } from "lucide-react";
 
-type ClipWithDate = ClipData & { generatedAt: string };
+type ClipWithDate = ClipData & { generatedAt: string; videoUrl?: string };
 
 export default function ClipsHistory() {
     const [search, setSearch] = useState("");

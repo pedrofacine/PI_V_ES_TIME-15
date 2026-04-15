@@ -16,6 +16,7 @@ function toClipData(clip: ClipResult, index: number): ClipData {
     duration:     `${Math.floor(clip.duration / 60)}:${String(
                     Math.round(clip.duration % 60)
                   ).padStart(2, "0")}`,
+    videoUrl:     clip.file_url,
   };
 }
 
