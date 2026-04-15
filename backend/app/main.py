@@ -36,7 +36,7 @@ def on_startup():
     Path("uploads/clips").mkdir(parents=True, exist_ok=True)
 
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/api/v1/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/stream")
 async def stream_numbers():
