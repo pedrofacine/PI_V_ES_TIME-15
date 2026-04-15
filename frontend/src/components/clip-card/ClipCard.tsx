@@ -1,4 +1,4 @@
-import { AlertCircle, PlayCircle, Download } from "lucide-react";
+import { AlertCircle, Download } from "lucide-react";
 import './ClipCard.css';
 import { downloadClip } from "../../services/api";
 
@@ -57,13 +57,13 @@ export function ClipCard({ clip }: ClipCardProps) {
                     </div>
                 )}
 
-                {clip.status === 'completed' && clip.thumbnailUrl && (
-                    <>
-                        <img src={clip.thumbnailUrl} alt={clip.title} className="thumbnail" />
-                        <div className="media-overlay hover-play">
-                            <PlayCircle size={48} color="white" />
-                        </div>
-                    </>
+                {clip.status === 'completed' && clip.videoUrl && (
+                    <video
+                        className="clip-video"
+                        src={`${import.meta.env.VITE_API_PATH}${clip.videoUrl}`}
+                        controls
+                        preload="auto"
+                    />
                 )}
             </div>
 

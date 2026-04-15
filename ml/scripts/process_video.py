@@ -8,6 +8,8 @@ from ultralytics import YOLO
 from scripts.trackers.tracker import PlayerTracker
 from typing import Callable
 import time 
+import subprocess, shutil
+from imageio_ffmpeg import get_ffmpeg_exe
 
 OCR_INTERVAL       = 5
 FRAME_SKIP         = 2
@@ -126,15 +128,39 @@ def _is_ball_near_player(player_box: list[float], ball_box: list[float]) -> bool
 
 
 def _save_clip(frames: list, out_path: str, fps: float, size: tuple[int, int]) -> None:
+    
+
+    tmp_path = out_path.replace(".mp4", "_tmp.mp4")
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(out_path, fourcc, fps, size)
+    out = cv2.VideoWriter(tmp_path, fourcc, fps, size)
     w, h = size
     for frame in frames:
         if frame.shape[1] != w or frame.shape[0] != h:
-            frame = cv2.resize(frame, (w, h)) 
+            frame = cv2.resize(frame, (w, h))
         out.write(frame)
-
     out.release()
+
+    try:
+        ffmpeg_bin = get_ffmpeg_exe()
+        subprocess.run(
+            [
+                ffmpeg_bin, "-y",
+                "-i", tmp_path,
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                "-an",
+                out_path,
+            ],
+            check=True,
+            capture_output=True,
+        )
+        os.remove(tmp_path)
+    except Exception as e:
+        print(f"[warn] ffmpeg re-encode falhou ({e}), usando mp4v original.")
+        shutil.move(tmp_path, out_path)
 
 
 def _parse_detections(results, player_classes: list[int], ball_class: int, min_conf: float = 0.3) -> tuple[list, list]:
