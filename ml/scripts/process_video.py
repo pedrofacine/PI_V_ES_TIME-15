@@ -15,7 +15,7 @@ MIN_W, MIN_H       = 30, 50
 PLAYER_CLS         = [0]
 BALL_CLS           = 32 
 MIN_CLIP_FRAMES    = 30
-GAP_TOLERANCE      = 60
+GAP_TOLERANCE      = 120
 PROCESS_WIDTH      = 640
 MIN_OCR_VOTES      = 2
 
@@ -379,8 +379,8 @@ def process_video(
     target_presence_frames = set()
 
     # Coleta todos os frames onde o jogador aparece
-    for f_idx in range(total_processed_frames):
-        frame_data = video_metadata.get(f_idx) 
+    for f_idx in range(start_frame_offset, total_processed_frames):
+        frame_data = video_metadata.get(f_idx)
         if not frame_data:
             continue 
 
@@ -434,7 +434,7 @@ def process_video(
     results_list: list[dict] = []
 
     # Adicionando margem antes e depois da jogada
-    PADDING_SECONDS = 2
+    PADDING_SECONDS = 6
     padding_frames = int(PADDING_SECONDS * fps)
     
     for idx, (start_f, end_f) in enumerate(clip_intervals):
