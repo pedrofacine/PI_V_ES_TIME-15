@@ -126,10 +126,14 @@ def _is_ball_near_player(player_box: list[float], ball_box: list[float]) -> bool
 
 
 def _save_clip(frames: list, out_path: str, fps: float, size: tuple[int, int]) -> None:
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(out_path, fourcc, fps, size)
+    w, h = size
     for frame in frames:
+        if frame.shape[1] != w or frame.shape[0] != h:
+            frame = cv2.resize(frame, (w, h)) 
         out.write(frame)
+
     out.release()
 
 
@@ -250,40 +254,40 @@ def process_video(
     if not cap.isOpened():
         raise ValueError("Falha ao abrir vídeo.")
 
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if not fps or fps < 10 or fps > 120:
+        fps = 30.0
     vid_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     vid_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    if vid_w > PROCESS_WIDTH:
-        frame_size = (PROCESS_WIDTH, int(vid_h * (PROCESS_WIDTH / vid_w)))
-    else:
-        frame_size = (vid_w, vid_h)
+    frame_idx = int(start_ts * fps)
+    end_frame = int(end_ts * fps)
+    start_frame_offset = frame_idx
 
-    cap.set(cv2.CAP_PROP_POS_MSEC, start_ts * 1000)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
 
     # ==========================================================
     # PASSO 1 — EXTRAÇÃO DE METADADOS
     # ==========================================================
     print(f"[1/4] Extraindo metadados com IA ({total_frames} frames)...")
-    
+    print(f"[video] Começando no segundo {start_ts} (frame {frame_idx})")
+    print(f"[video] Terminando no segundo {end_ts} (frame {end_frame})")
     tracker = PlayerTracker()
     jersey_map: dict[str, Counter] = defaultdict(Counter)
     video_metadata: dict[int, dict] = {}
-    
-    frame_idx = 0
-    start_frame_offset = int(start_ts * fps)
+    max_frame = start_frame_offset - 1
 
     while True:
         ret, frame_orig = cap.read()
         if not ret: break
-        
-        current_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
-        if end_ts > 0 and current_msec > end_ts * 1000:
+        if end_ts > 0 and frame_idx > end_frame:
             break
         
+        max_frame = max(max_frame, frame_idx)
+        
         if frame_idx % FRAME_SKIP != 0:
-            if frame_idx > 0 and (frame_idx - 1) in video_metadata:
+            if frame_idx > start_frame_offset and (frame_idx - 1) in video_metadata:
                 video_metadata[frame_idx] = video_metadata[frame_idx - 1]
             frame_idx += 1
             continue
@@ -328,7 +332,10 @@ def process_video(
 
         frame_idx += 1
 
-    total_processed_frames = frame_idx
+    cap.release()  
+
+    total_frames = max_frame + 1  
+    total_processed_frames = total_frames
 
     # ==========================================================
     # PASSO 2 - RESOLUÇÃO DE IDs
@@ -373,9 +380,9 @@ def process_video(
 
     # Coleta todos os frames onde o jogador aparece
     for f_idx in range(total_processed_frames):
-        frame_data = video_metadata.get(f_idx)
+        frame_data = video_metadata.get(f_idx) 
         if not frame_data:
-            continue
+            continue 
 
         for l, t, r, b, tid in frame_data["tracks"]:
             if str(tid) in target_track_ids:
@@ -392,7 +399,7 @@ def process_video(
                                             fps
                                         )
 
-    print(f"    ⚽ {len(eventos_bola)} interações com a bola detectadas.")
+    print(f"    {len(eventos_bola)} interações com a bola detectadas.")
 
     clip_intervals = []
 
@@ -422,27 +429,41 @@ def process_video(
     # ==========================================================
     print(f"[4/4] Fatiando vídeo em {len(clip_intervals)} clipes...")
     
+    cap = cv2.VideoCapture(video_path)  # Reopen cap for clipping to ensure reliable seeking
+    
     results_list: list[dict] = []
 
     # Adicionando margem antes e depois da jogada
     PADDING_SECONDS = 2
-    padding_frames = int(PADDING_SECONDS + fps)
+    padding_frames = int(PADDING_SECONDS * fps)
     
     for idx, (start_f, end_f) in enumerate(clip_intervals):
         padded_start_f = max(0, start_f - padding_frames)
-        padded_end_f = min(total_processed_frames - 1, end_f + padding_frames)
+        padded_end_f = min(total_frames - 1, end_f + padding_frames)
         
-        absolute_start_f = start_frame_offset + padded_start_f
+        absolute_start_f = padded_start_f
+        if absolute_start_f >= total_frames:
+            print(f"[ERRO] Frame fora do vídeo: {absolute_start_f}")
+            continue
+
         cap.set(cv2.CAP_PROP_POS_FRAMES, absolute_start_f)
-        
         clip_frames = []
-        for f in range(start_f, end_f + 1):
+        num_frames = padded_end_f - padded_start_f + 1
+
+        for _ in range(num_frames):
             ret, frame_orig = cap.read()
-            if not ret: break
+            if not ret:
+                break
             clip_frames.append(_resize_frame(frame_orig))
-            
+
+        if not clip_frames:
+            print(f"[ERRO] Nenhum frame capturado para o clipe {idx}")
+            print(f"start_f={start_f}, end_f={end_f}")
+            print(f"padded_start_f={padded_start_f}, padded_end_f={padded_end_f}")
+            continue
+
         start_s = padded_start_f / fps
-        end_s = padded_end_f / fps
+        end_s   = padded_end_f / fps
 
         clip_name = f"jogador_{target_number}_clipe_{idx+1}_{int(start_s)}s_a_{int(end_s)}s.mp4"
         clip_path = os.path.join(output_dir, clip_name)
@@ -452,7 +473,8 @@ def process_video(
                         if start_f <= e["frame"] <= end_f
                         ]
         
-        _save_clip(clip_frames, clip_path, fps, frame_size)
+        h, w = clip_frames[0].shape[:2]
+        _save_clip(clip_frames, clip_path, fps, (w, h))
         
         clip_dict = {
             "path": clip_path,
@@ -469,7 +491,7 @@ def process_video(
     elapsed_minutes = elapsed_seconds / 60
     
     print(f"\n[MÉTRICAS] Performance do Pipeline:")
-    print(f"  -> Total de Frames Analisados: {total_frames}")
+    print(f"  -> Total de Frames Analisados: {total_processed_frames - start_frame_offset}")
     print(f"  -> Tempo Total de Execução: {elapsed_seconds:.2f} segundos ({elapsed_minutes:.2f} minutos)")
     print(f"  -> Clipes Gerados: {len(results_list)}")
     print("[Concluído] Pipeline finalizado com sucesso.")

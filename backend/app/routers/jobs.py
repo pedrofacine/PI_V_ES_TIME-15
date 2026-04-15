@@ -77,12 +77,13 @@ def stream_job_status(
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int):
+def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int, start_ts: int = 0, end_ts: int = 0):
     import sys
     import traceback
     from datetime import datetime, timezone
     
     print(f"[pipeline] Iniciando job {job_id}") 
+    print(f"[pipeline] start_ts={start_ts} end_ts={end_ts}")
 
     PROJECT_ROOT = Path(__file__).resolve().parents[3]
     ML_ROOT = PROJECT_ROOT / "ml"
@@ -162,6 +163,8 @@ def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int):
             video_path=video_path, 
             target_number=target_number, 
             output_dir=output_dir,
+            start_ts=start_ts,
+            end_ts=end_ts,
             on_player_found=set_status_to_tracking,
             on_clip_generated=save_clip_to_db,
             debug=True,
@@ -182,6 +185,8 @@ def run_pipeline(job_id: uuid.UUID, video_path: str, target_number: int):
 async def create_job(
     target_number: int  = Form(..., ge=0, le=999),
     video: UploadFile   = File(...),
+    start_ts: int       = Form(0),
+    end_ts: int         = Form(0),
     current_user: User  = Depends(get_current_user),
     session: Session    = Depends(get_session),
 ):
@@ -226,7 +231,7 @@ async def create_job(
     # 4. Dispara pipeline em background
     thread = threading.Thread(
         target  = run_pipeline,
-        args    = (job.id, str(video_path), target_number),
+        args    = (job.id, str(video_path), target_number, start_ts, end_ts),
         daemon  = True,
     )
     thread.start()
