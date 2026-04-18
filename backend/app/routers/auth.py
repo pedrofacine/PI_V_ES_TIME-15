@@ -2,12 +2,14 @@
 Rotas de autenticação: registro e login.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
+from app.core.auth import get_current_user
 from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models import User
 from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, TokenPayload
 from app.core.security import hash_password, verify_password, create_access_token
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -75,3 +77,13 @@ def login(data: UserLogin, session: Session = Depends(get_session)):
             max_clips_allowed=user.max_clips_allowed,
         ),
     )
+
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(current_user: User = Depends(get_current_user)):
+    """
+    Logout. O cliente deve descartar o token localmente.
+    """
+    # Futuro: adicionar token à blacklist, registrar log, etc.
+    return None

@@ -33,7 +33,7 @@ CLIPS_DIR  = BASE_DIR / "uploads" / "clips"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
-@router.get("/{job_id}/stream")
+
 @router.get("/{job_id}/stream")
 def stream_job_status(
     job_id: uuid.UUID,
