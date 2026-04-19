@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 from imageio_ffmpeg import get_ffmpeg_exe
 
-from scripts.config import FFMPEG_CRF, FFMPEG_PRESET
+from ml.scripts.config import FFMPEG_CRF, FFMPEG_PRESET
 
 
 class ClipWriter:

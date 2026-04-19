@@ -40,7 +40,8 @@ export default function ProcessingClipsView({ job }: ProcessingClipsProps) {
 
   function getTitle() {
     switch (job.status) {
-      case "TRACKING":  return "Recortando os lances do jogador escolhido...";
+      case "TRACKING":  return "Mapeando os lances do jogador escolhido...";
+      case "EXTRACTING": return "Recortando os lances do jogador escolhido...";
       case "COMPLETED": return "Os clipes estão prontos!";
       case "ERROR":     return "Erro no processamento.";
       default:          return "Processando...";
@@ -75,7 +76,7 @@ function handleDownloadAll() {
               clip={toClipData(clip, i)}
             />
           ))}
-          {job?.status === "TRACKING" &&
+          {job?.status === "EXTRACTING" &&
             <ClipCard
               key={skeletonClip.id}
               clip={skeletonClip}

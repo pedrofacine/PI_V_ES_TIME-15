@@ -13,7 +13,7 @@ import cv2
 import easyocr
 import numpy as np
 
-from scripts.config import (
+from ml.scripts.config import (
     MIN_CROP_H,
     MIN_CROP_W,
     OCR_MIN_CONFIDENCE,

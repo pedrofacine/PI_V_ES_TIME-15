@@ -23,7 +23,7 @@ Para usar a API orientada a classe diretamente (recomendado em código novo):
 """
 from typing import Callable
 
-from scripts.video_pipeline import VideoPipeline
+from ml.scripts.video_pipeline import VideoPipeline
 
 
 # Instância única reutilizada entre chamadas.

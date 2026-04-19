@@ -15,7 +15,7 @@ from typing import Union
 import numpy as np
 from ultralytics import YOLO
 
-from scripts.config import (
+from ml.scripts.config import (
     COCO_BALL_CLS,
     COCO_PERSON_CLS,
     DEFAULT_MODEL_PATH,

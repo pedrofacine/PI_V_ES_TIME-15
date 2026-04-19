@@ -15,14 +15,15 @@ import time
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Callable
+import uuid
 
 import cv2
 import numpy as np
 
-from detector import YoloDetector
-from scripts.ball_event_detector import BallEventDetector
-from scripts.clip_writer import ClipWriter
-from scripts.config import (
+from ml.detector import YoloDetector
+from ml.scripts.ball_event_detector import BallEventDetector
+from ml.scripts.clip_writer import ClipWriter
+from ml.scripts.config import (
     CLIP_PADDING_SECONDS,
     FRAME_SKIP,
     GAP_TOLERANCE,
@@ -32,8 +33,9 @@ from scripts.config import (
     PROCESS_WIDTH,
     USE_GPU,
 )
-from scripts.jersey_reader import JerseyReader
-from scripts.trackers.tracker import PlayerTracker
+from ml.scripts.jersey_reader import JerseyReader
+from ml.scripts.trackers.tracker import PlayerTracker
+from ml.scripts.color_extractor import ColorExtractor
 
 
 class VideoPipeline:
@@ -61,19 +63,152 @@ class VideoPipeline:
         self.jersey_reader = JerseyReader()
         self.ball_event_detector = BallEventDetector()
         self.clip_writer = ClipWriter()
+        self.color_extractor = ColorExtractor()
 
         # Tracker é instanciado por vídeo (dentro de process)
         # porque mantém estado interno que não pode vazar entre execuções
+
+    def fast_scan(
+        self,
+        video_path: str,
+        output_dir: str,
+        target_number: int | None = None,
+        frames_to_skip: int = 30,
+        on_candidate_found: Callable[[dict], None] | None = None,
+        should_stop: Callable[[], bool] | None = None,
+        start_ts: int = 0,
+        end_ts: int = 0
+    ) -> list[dict]:
+        """
+        Faz uma varredura super rápida no vídeo procurando candidatos.
+        Se target_number for fornecido, filtra só por ele. 
+        Senão, pega os melhores candidatos de cada número.
+        """
+
+        print(f"[FAST SCAN] Iniciando busca expressa no vídeo...")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise ValueError("Falha ao abrir vídeo no Fast Scan.")
+        
+        fps = self._get_safe_fps(cap)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        start_frame = int(start_ts * fps)
+        end_frame = int(end_ts * fps) if end_ts > 0 else total_frames - 1
+
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+        print(f"[FAST SCAN] Pulando para o frame {start_frame} (limite: {end_frame}).")
+
+        candidates_found = {}
+
+        candidates_found = {}
+        try:
+            while True:
+                if should_stop and should_stop():
+                    print("[FAST SCAN] Interrompido pelo usuário! Iniciando tracking...")
+                    break
+
+                ret, frame_orig = cap.read()
+                if not ret:
+                    break
+                
+                frame_idx = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+                
+                # Pula frames para agilizar
+                if frame_idx % frames_to_skip != 0:
+                    continue
+                    
+                frame = self._resize_frame(frame_orig)
+                scale = frame_orig.shape[1] / frame.shape[1]
+
+                detections, _ = self.detector.detect(frame)
+                
+                for box, conf, cls in detections:
+                    x1, y1, w, h = box
+                    bbox_orig = (
+                        int(x1 * scale),
+                        int(y1 * scale),
+                        int((x1 + w) * scale),
+                        int((y1 + h) * scale)
+                    )
+                    
+                    # Tenta ler o número deste jogador (passa 0 se não tiver target para não bugar a heurística)
+                    numbers = self.jersey_reader.read_from_bbox(
+                        frame_orig, bbox_orig, target_number or 0
+                    )
+                    
+                    if not numbers:
+                        continue
+                        
+                    for num in numbers:
+                        crop = self.jersey_reader._torso_crop(frame_orig, *bbox_orig)
+                        hex_color = self.color_extractor.get_dominant_color_hex(crop)
+                        
+                        if not hex_color:
+                            continue
+
+                        # ==========================================
+                        # 1. DEDUPLICAÇÃO INTELIGENTE (Distância de Cor)
+                        # ==========================================
+                        is_duplicate = False
+                        for existing_sig, existing_data in candidates_found.items():
+                            if existing_data["number"] == num:
+                                # Se é o mesmo número e a cor é parecida (distância < 60), é o mesmo jogador!
+                                if self._color_distance(hex_color, existing_data["color"]) < 60:
+                                    is_duplicate = True
+                                    break
+                        
+                        if not is_duplicate:
+                            signature = f"{num}_{hex_color}"
+                            img_filename = f"cand_{uuid.uuid4().hex[:8]}.jpg"
+                            img_path = os.path.join(output_dir, img_filename)
+                            
+                            px1, py1, px2, py2 = bbox_orig
+                            h_box = py2 - py1
+                            w_box = px2 - px1
+
+                            pad_y = int(h_box * 0.15)
+                            pad_x = int(w_box * 0.15)
+
+                            cy1 = max(0, py1 - pad_y)
+                            cy2 = min(frame_orig.shape[0], py2 + pad_y)
+                            cx1 = max(0, px1 - pad_x)
+                            cx2 = min(frame_orig.shape[1], px2 + pad_x)
+
+                            player_crop = frame_orig[cy1:cy2, cx1:cx2]
+                            cv2.imwrite(img_path, player_crop)
+                            
+                            cand_dict = {
+                                "id": signature,
+                                "name": f"Jogador {num}",
+                                "number": num,
+                                "color": hex_color,
+                                "image": f"/uploads/clips/{os.path.basename(output_dir)}/{img_filename}"
+                            }
+                            candidates_found[signature] = cand_dict
+                            print(f"  [FAST SCAN] NOVO CANDIDATO ENVIADO PARA A TELA: {num}")
+                            
+                            if on_candidate_found:
+                                on_candidate_found(cand_dict)
+                            
+        finally:
+            cap.release()
+            
+        print(f"[FAST SCAN] Concluído. {len(candidates_found)} perfis distintos encontrados.")
+        return list(candidates_found.values())
 
     def process(
         self,
         video_path: str,
         target_number: int,
         output_dir: str,
+        target_signature: str | None = None,
         start_ts: int = 0,
         end_ts: int = 0,
         on_player_found: Callable | None = None,
         on_clip_generated: Callable | None = None,
+        on_extracting_start: Callable | None = None,
         debug: bool = False,
     ) -> list[dict]:
         """
@@ -119,6 +254,7 @@ class VideoPipeline:
                 end_frame=end_frame,
                 total_frames=total_frames,
                 target_number=target_number,
+                target_signature=target_signature,
                 debug=debug,
                 debug_dir=debug_dir,
             )
@@ -131,6 +267,7 @@ class VideoPipeline:
         target_track_ids = self._resolve_player_ids(
             jersey_map=jersey_map,
             target_number=target_number,
+            target_signature=target_signature,
             debug=debug,
         )
         if on_player_found:
@@ -146,6 +283,8 @@ class VideoPipeline:
         )
 
         # ============== PASSO 4 ==============
+        if on_extracting_start:
+            on_extracting_start()
         results = self._write_clips(
             video_path=video_path,
             clip_intervals=clip_intervals,
@@ -177,17 +316,10 @@ class VideoPipeline:
         end_frame: int,
         total_frames: int,
         target_number: int,
+        target_signature: str | None,
         debug: bool,
         debug_dir: str | None,
     ) -> tuple[dict, dict, int]:
-        """
-        Percorre o vídeo frame a frame extraindo detecções, tracking e OCR.
-
-        Retorna:
-          - video_metadata: {frame_idx: {"tracks": [...], "balls": [...]}}
-          - jersey_map: {track_id: Counter({numero: votos})}
-          - max_frame: maior frame_idx processado
-        """
         print(f"[1/4] Extraindo metadados com IA ({total_frames} frames)...")
         print(f"[video] Começando no segundo {start_frame // max(1, int(cap.get(cv2.CAP_PROP_FPS)))} (frame {start_frame})")
         print(f"[video] Terminando no frame {end_frame}")
@@ -242,6 +374,7 @@ class VideoPipeline:
                     frame_orig=frame_orig,
                     scale=scale,
                     target_number=target_number,
+                    target_signature=target_signature,
                     frame_idx=frame_idx,
                     jersey_map=jersey_map,
                     debug=debug,
@@ -258,12 +391,18 @@ class VideoPipeline:
         frame_orig: np.ndarray,
         scale: float,
         target_number: int,
+        target_signature: str | None,
         frame_idx: int,
         jersey_map: dict,
         debug: bool,
         debug_dir: str | None,
     ) -> None:
         """Roda OCR em cada track do frame e atualiza o jersey_map."""
+
+        target_color = None
+        if target_signature and "_" in target_signature:
+            target_color = target_signature.split("_")[1]
+        
         for l, t, r, b, track_id in tracks:
             # Converte bbox para coordenadas da imagem original
             bbox = (
@@ -281,13 +420,38 @@ class VideoPipeline:
                 continue
 
             for n in numbers:
-                jersey_map[str(track_id)][n] += 1
+                if target_color and n == target_number:
+                    crop = self.jersey_reader._torso_crop(frame_orig, *bbox)
+                    hex_color = self.color_extractor.get_dominant_color_hex(crop)
+                    
+                    if hex_color and self._color_distance(target_color, hex_color) < 80:
+                        # Jogador correto. Cadastra usando a Assinatura Oficial
+                        jersey_map[str(track_id)][target_signature] += 1
+                    else:
+                        # É do outro time. Cadastra com uma tag de lixo para não confundir
+                        jersey_map[str(track_id)][f"LIXO_{n}_{hex_color}"] += 1
+                else:
+                    # Fluxo normal (fallback se não houver signature)
+                    jersey_map[str(track_id)][n] += 1
 
             if debug and debug_dir:
                 self._save_debug_crop(
                     frame_orig, bbox, frame_idx, track_id, numbers, debug_dir
                 )
                 print(f"  [MAP] frame={frame_idx} track={track_id} leu={numbers}")
+
+    def _color_distance(self, hex1: str, hex2: str) -> float:
+        """Calcula a distância 3D entre duas cores (Euclidiana)"""
+        def hex_to_rgb(h: str):
+            h = h.lstrip('#')
+            return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+        
+        try:
+            r1, g1, b1 = hex_to_rgb(hex1)
+            r2, g2, b2 = hex_to_rgb(hex2)
+            return ((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2) ** 0.5
+        except:
+            return 999.0 # Em caso de erro de parsing, assume que as cores são muito diferentes
 
     # ======================================================
     # PASSO 2 — RESOLUÇÃO DE IDs
@@ -296,6 +460,7 @@ class VideoPipeline:
         self,
         jersey_map: dict,
         target_number: int,
+        target_signature: str | None,
         debug: bool,
     ) -> set[str]:
         """
@@ -310,7 +475,7 @@ class VideoPipeline:
         """
         print("[2/4] Resolvendo Identidades dos Jogadores...")
 
-        resolved: dict[str, int] = {}
+        resolved: dict[str, int | str] = {}
         for tid, counter in jersey_map.items():
             if not counter:
                 continue
@@ -323,24 +488,23 @@ class VideoPipeline:
             print(f"  [MAP] Detalhado: {detailed}")
             print(f"  [MAP] Resolvido: {resolved}")
 
+        target_val = target_signature if target_signature else target_number
+
         target_track_ids = {
-            tid for tid, num in resolved.items() if num == target_number
+            tid for tid, num in resolved.items() if num == target_val
         }
 
         # Fallback: aceita tracks cujo top-number é o alvo, mesmo sem votos suficientes
         if not target_track_ids:
             for tid, counter in jersey_map.items():
-                if counter and counter.most_common(1)[0][0] == target_number:
+                if counter and counter.most_common(1)[0][0] == target_val:
                     target_track_ids.add(tid)
-                    resolved[tid] = target_number
+                    resolved[tid] = target_val
 
         if not target_track_ids:
-            all_nums = sorted(set(resolved.values())) if resolved else []
-            raise ValueError(
-                f"Jogador #{target_number} não encontrado. Identificados: {all_nums}"
-            )
+            raise ValueError(f"Jogador alvo não encontrado. Alvo: {target_val}")
 
-        print(f"    ✓ Jogador #{target_number} vinculado aos IDs: {target_track_ids}")
+        print(f"    ✓ Jogador #{target_val} vinculado aos IDs: {target_track_ids}")
         return target_track_ids
 
     # ======================================================

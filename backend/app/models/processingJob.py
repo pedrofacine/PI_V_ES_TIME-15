@@ -6,6 +6,7 @@ from sqlmodel import Field, SQLModel, Relationship
 if TYPE_CHECKING:
     from app.models.video import Video
     from app.models.clip import Clip
+    from app.models.candidates import Candidate
 
 
 class ProcessingJob(SQLModel, table=True):
@@ -21,3 +22,7 @@ class ProcessingJob(SQLModel, table=True):
 
     video: Optional["Video"] = Relationship(back_populates="jobs")
     clips: List["Clip"] = Relationship(back_populates="job")
+    candidates: List["Candidate"] = Relationship(
+        back_populates="job", 
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )

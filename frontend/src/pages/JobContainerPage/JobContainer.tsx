@@ -24,7 +24,6 @@ export default function JobContainerPage() {
       return;
     }
 
-    // Abre a conexão SSE UMA ÚNICA VEZ
     const streamUrl = `${import.meta.env.VITE_API_PATH}/jobs/${jobId}/stream?token=${token}`;
     const eventSource = new EventSource(streamUrl);
 

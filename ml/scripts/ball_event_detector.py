@@ -5,7 +5,7 @@ Responsabilidade única: dado o histórico de posições dos jogadores
 e da bola ao longo do vídeo, identificar momentos em que o jogador-alvo
 teve contato/proximidade com a bola (ex: um toque, um drible).
 """
-from scripts.config import (
+from ml.scripts.config import (
     BALL_IOU_THRESHOLD,
     BALL_PROXIMITY_PAD,
     BALL_PROXIMITY_THRESHOLD,

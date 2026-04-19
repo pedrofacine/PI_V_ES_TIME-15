@@ -1,9 +1,8 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Grid } from "../../components/grid/Grid";
 import placeholderImg from "../../assets/placeholder.png";
 import "./SelectPlayer.css";
-import { JobStatus } from "../../services/api";
+import { getToken, JobStatus } from "../../services/api";
 
 type SelectPlayerProps = {
   job: JobStatus;
@@ -12,15 +11,23 @@ type SelectPlayerProps = {
 
 
 export default function SelectPlayerView({job, jobId}: SelectPlayerProps) {
-  const mockPlayers = [
-    { id: "1", name: "Jogador 1", image: placeholderImg },
-    { id: "2", name: "Jogador 2", image: placeholderImg },
-  ];
-
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
+  useEffect(() => {
+    if (!hasAutoOpened && job.candidates && job.candidates.length > 0) {
+      
+      const targetCandidate = job.candidates.find(c => c.is_target);
+      
+      if (targetCandidate) {
+        setSelectedPlayer(targetCandidate.id);
+        setIsModalOpen(true);
+        setHasAutoOpened(true);
+      }
+    }
+  }, [job.candidates, hasAutoOpened]);
 
   const handleAdvance = () => {
     if (selectedPlayer) {
@@ -29,19 +36,32 @@ export default function SelectPlayerView({job, jobId}: SelectPlayerProps) {
   };
 
   const handleConfirmPlayer = async () => {
-    // Quando o backend estiver pronto, chamaremos a API aqui:
-    // await api.post(`/jobs/${jobId}/confirm`, { playerId: selectedPlayer });
-    
-    setIsModalOpen(false);
-    // Nota: NÃO damos navigate() aqui! 
-    // Quando a API responder, o status do Job muda para TRACKING via SSE
-    // e o Container pai troca a tela sozinho!
+    try {
+      await fetch(`${import.meta.env.VITE_API_PATH}/jobs/${jobId}/confirm`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getToken()}` // Se você estiver usando token no app
+        },
+        body: JSON.stringify({
+          candidate_signature: selectedPlayer // O ID do jogador que o usuário clicou
+        })
+      });
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error("Erro ao confirmar o jogador:", err);
+      alert("Falha ao iniciar o recorte. Tente novamente.");
+    }
   };
 
   const handleRefineSearch = async () => {
     setIsRefining(true);
     // TODO: Chamar api.post(`/jobs/${jobId}/refine`) para acionar o DEEP_SCAN no Python
   };
+
+  // Pega os dados completos do jogador selecionado para exibir no Modal
+  const selectedCandidateData = job.candidates?.find(c => c.id === selectedPlayer);
+  const candidatesList = job.candidates || [];
 
   return (
     <div className="page-container bg-gradient">
@@ -51,30 +71,45 @@ export default function SelectPlayerView({job, jobId}: SelectPlayerProps) {
           <h2 className="processing-title">
             {job.status === "FAST_SCAN" || isRefining
               ? "Analisando jogadores em campo..." 
-              : "Buscando o jogador nº <Número>"}
+              : `Buscando o jogador nº ${job.candidates?.[0]?.number || "..."}`}
           </h2>
 
           <div className="progress-bar-container">
-            <div className="progress-bar-fill animating" />
+            <div className={`progress-bar-fill ${job.status === "WAITING_USER" ? "finished" : "animating"}`} />
           </div>
         </div>
 
-        <p className="select-text">Selecione o jogador que você deseja:</p>
+        <p className="select-text">
+          {candidatesList.length > 0 
+            ? "Selecione o jogador que você deseja:" 
+            : "Procurando candidatos..."}
+        </p>
 
         <Grid>
-          {mockPlayers.map(player => (
-            <div
-              key={player.id}
-              className={`player-card ${selectedPlayer === player.id ? "selected" : ""}`}
-              onClick={() => setSelectedPlayer(player.id)}
-            >
-              <img src={player.image} alt={player.name} />
-              <p>
-                {player.name}
-                {selectedPlayer === player.id && " - Selecionado"}
-              </p>
-            </div>
-          ))}
+          {candidatesList.map(candidate => {
+            // Monta a URL da imagem. Se a sua API roda numa porta diferente, pode ser necessário 
+            // concatenar a base URL aqui, ex: `${import.meta.env.VITE_API_BASE_URL}${candidate.image}`
+            const imageUrl = `${import.meta.env.VITE_API_PATH}${candidate.image}` || placeholderImg;
+
+            return (
+              <div
+                key={candidate.id}
+                className={`player-card ${selectedPlayer === candidate.id ? "selected" : ""}`}
+                onClick={() => setSelectedPlayer(candidate.id)}
+              >
+                <img src={imageUrl} alt={candidate.name} />
+                <p>
+                  {candidate.name}
+                  {selectedPlayer === candidate.id && " - Selecionado"}
+                </p>
+                <div style={{
+                    width: '16px', height: '16px', borderRadius: '50%', 
+                    backgroundColor: candidate.color_hex, margin: '0 auto',
+                    border: '1px solid #ccc'
+                }} title={`Cor detectada: ${candidate.color_hex}`} />
+              </div>
+            );
+          })}
         </Grid>
 
         <div className="clips-actions-container">
@@ -96,15 +131,18 @@ export default function SelectPlayerView({job, jobId}: SelectPlayerProps) {
         </div>
       </div>
 
-      {isModalOpen && (
+      {isModalOpen && selectedCandidateData && (
         <div className="modal-overlay">
           <div className="modal-card">
             <h2 className="modal-title">Esse é o seu jogador?</h2>
             
             <div className="modal-player-preview">
               <div className="preview-image-container">
-                 <img src={placeholderImg} alt="Preview" />
-                 <div className="player-id-label">{"<id do jogador>"}</div>
+                 <img 
+                    src={selectedCandidateData.image ? `${import.meta.env.VITE_API_PATH}${selectedCandidateData.image}` : placeholderImg} 
+                    alt="Preview" 
+                  />
+                 <div className="player-id-label">{selectedCandidateData.name}</div>
               </div>
             </div>
 

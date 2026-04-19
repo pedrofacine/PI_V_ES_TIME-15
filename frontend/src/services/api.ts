@@ -38,7 +38,7 @@ export interface RegisterBody {
 
 
 
-export type JobStatusType = "PENDING" | "FAST_SCAN" | "WAITING_USER" | "DEEP_SCAN" | "TRACKING" | "COMPLETED" | "ERROR";
+export type JobStatusType = "PENDING" | "FAST_SCAN" | "WAITING_USER" | "DEEP_SCAN" | "TRACKING" | "EXTRACTING" | "COMPLETED" | "ERROR";
 
 export interface ClipResult {
   id: string;
@@ -48,9 +48,19 @@ export interface ClipResult {
   duration: number;
 }
 
+export type Candidate = {
+  id: string; 
+  name: string;
+  number: number;
+  color_hex: string;
+  image: string;
+  is_target: boolean;
+};
+
 export interface JobStatus {
   job_id: string;
   status: JobStatusType;
+  candidates?: Candidate[];
   clips: ClipResult[];
 }
 
