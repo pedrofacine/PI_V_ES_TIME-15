@@ -3,30 +3,44 @@ import { useNavigate } from "react-router-dom";
 import { Grid } from "../../components/grid/Grid";
 import placeholderImg from "../../assets/placeholder.png";
 import "./SelectPlayer.css";
+import { JobStatus } from "../../services/api";
 
-type PlayerData = {
-  id: string;
-  name: string;
-  image: string;
+type SelectPlayerProps = {
+  job: JobStatus;
+  jobId: string;
 };
 
-export default function SelectPlayerPage() {
-  const mockPlayers: PlayerData[] = [
+
+export default function SelectPlayerView({job, jobId}: SelectPlayerProps) {
+  const mockPlayers = [
     { id: "1", name: "Jogador 1", image: placeholderImg },
     { id: "2", name: "Jogador 2", image: placeholderImg },
-    { id: "3", name: "Jogador 3", image: placeholderImg },
-    { id: "4", name: "Jogador 4", image: placeholderImg },
-    { id: "5", name: "Jogador 5", image: placeholderImg },
   ];
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const navigate = useNavigate();
+  const [isRefining, setIsRefining] = useState(false);
+
 
   const handleAdvance = () => {
     if (selectedPlayer) {
       setIsModalOpen(true);
     }
+  };
+
+  const handleConfirmPlayer = async () => {
+    // Quando o backend estiver pronto, chamaremos a API aqui:
+    // await api.post(`/jobs/${jobId}/confirm`, { playerId: selectedPlayer });
+    
+    setIsModalOpen(false);
+    // Nota: NÃO damos navigate() aqui! 
+    // Quando a API responder, o status do Job muda para TRACKING via SSE
+    // e o Container pai troca a tela sozinho!
+  };
+
+  const handleRefineSearch = async () => {
+    setIsRefining(true);
+    // TODO: Chamar api.post(`/jobs/${jobId}/refine`) para acionar o DEEP_SCAN no Python
   };
 
   return (
@@ -35,7 +49,9 @@ export default function SelectPlayerPage() {
 
         <div className="processing-header">
           <h2 className="processing-title">
-            Buscando o jogador nº {"<Número digitado pelo usuário>"}
+            {job.status === "FAST_SCAN" || isRefining
+              ? "Analisando jogadores em campo..." 
+              : "Buscando o jogador nº <Número>"}
           </h2>
 
           <div className="progress-bar-container">
@@ -62,6 +78,14 @@ export default function SelectPlayerPage() {
         </Grid>
 
         <div className="clips-actions-container">
+          <button 
+            className="btn btn-secondary" 
+            onClick={handleRefineSearch}
+            disabled={job.status !== "WAITING_USER"}
+          >
+            Meu jogador não está aqui
+          </button>
+
           <button
             className="btn btn-primary"
             disabled={!selectedPlayer}
@@ -88,7 +112,7 @@ export default function SelectPlayerPage() {
               <button className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>
                 Não, a IA errou ✖
               </button>
-              <button className="btn-modal-confirm" onClick={() => { setIsModalOpen(false); navigate("/processing-videos"); }}>
+              <button className="btn-modal-confirm" onClick={handleConfirmPlayer}>
                 Sim, gerar clipes ✔
               </button>
             </div>

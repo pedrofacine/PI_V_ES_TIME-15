@@ -38,7 +38,7 @@ export interface RegisterBody {
 
 
 
-export type JobStatusType = "PENDING" | "SCANNING" | "TRACKING" | "COMPLETED" | "ERROR";
+export type JobStatusType = "PENDING" | "FAST_SCAN" | "WAITING_USER" | "DEEP_SCAN" | "TRACKING" | "COMPLETED" | "ERROR";
 
 export interface ClipResult {
   id: string;

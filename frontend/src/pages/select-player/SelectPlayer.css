@@ -110,3 +110,10 @@
 .btn-modal-cancel:hover, .btn-modal-confirm:hover {
     filter: brightness(0.9);
 }
+
+.clips-action-container{
+    margin-top: 24px;
+    display: flex;
+    gap: 16px;
+    justify-content: flex-end;
+}
