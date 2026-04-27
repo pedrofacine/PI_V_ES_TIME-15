@@ -24,7 +24,6 @@ export default function Login() {
     setLoading(true)
     try {
       const data = await login({ email: email.trim(), password })
-
       saveSession(data)
       navigate("/", { replace: true })
     } catch (err) {
@@ -35,19 +34,21 @@ export default function Login() {
   }
 
   return (
-    <div className="login-page bg-gradient">
-      <div className="white-container">
+    <div className="login-page">
+      <div className="login-card">
 
-        <img src={logo} className="login-logo" alt="SmartScout" />
-
-        <h2 className="login-title">Login</h2>
+        <div className="login-header">
+          <img src={logo} className="login-logo" alt="SmartScout" />
+          <h2 className="login-title">Bem-vindo de volta</h2>
+          <p className="login-subtitle">Acesse sua conta SmartScout</p>
+        </div>
 
         <form className="login-form" onSubmit={handleLogin}>
 
           <div className="input-group">
             <label className="input-label">E-mail</label>
             <div className="input-wrapper">
-              <span className="input-icon"><Mail/></span>
+              <span className="input-icon"><Mail size={16} /></span>
               <input
                 type="email"
                 className="input-base with-icon"
@@ -61,7 +62,7 @@ export default function Login() {
           <div className="input-group">
             <label className="input-label">Senha</label>
             <div className="input-wrapper">
-              <span className="input-icon"><Lock/></span>
+              <span className="input-icon"><Lock size={16} /></span>
               <input
                 type="password"
                 className="input-base with-icon"
@@ -72,13 +73,13 @@ export default function Login() {
             </div>
           </div>
 
-          {error && <p className="login-error">{error}</p>}
-
-          <a href="#" className="forgot-password">
+          <div className="forgot-password">
             <Link to="/reset-password" className="login-link">
               Esqueceu a senha?
             </Link>
-          </a>
+          </div>
+
+          {error && <p className="login-error">{error}</p>}
 
           <button
             type="submit"
@@ -88,6 +89,8 @@ export default function Login() {
             {loading ? "Entrando..." : "Entrar"}
           </button>
 
+          <div className="login-divider"><span>ou</span></div>
+
           <p className="create-account">
             Ainda não possui conta?{" "}
             <Link to="/signup" className="login-link">
@@ -96,7 +99,6 @@ export default function Login() {
           </p>
 
         </form>
-
       </div>
     </div>
   )
