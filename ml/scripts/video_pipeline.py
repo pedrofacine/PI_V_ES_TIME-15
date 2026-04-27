@@ -34,6 +34,7 @@ from ml.scripts.config import (
     USE_GPU,
 )
 from ml.scripts.jersey_reader import JerseyReader
+from ml.scripts.trackers.ball_tracker import BallTracker
 from ml.scripts.trackers.tracker import PlayerTracker
 from ml.scripts.color_extractor import ColorExtractor
 
@@ -233,6 +234,7 @@ class VideoPipeline:
 
         # Tracker novo a cada execução (estado limpo)
         tracker = PlayerTracker()
+        ball_tracker = BallTracker()
 
         # Abre vídeo e extrai metadados
         cap = cv2.VideoCapture(video_path)
@@ -250,6 +252,7 @@ class VideoPipeline:
             video_metadata, jersey_map, max_frame = self._extract_metadata(
                 cap=cap,
                 tracker=tracker,
+                ball_tracker=ball_tracker,
                 start_frame=start_frame,
                 end_frame=end_frame,
                 total_frames=total_frames,
@@ -312,6 +315,7 @@ class VideoPipeline:
         self,
         cap: cv2.VideoCapture,
         tracker: PlayerTracker,
+        ball_tracker: BallTracker,
         start_frame: int,
         end_frame: int,
         total_frames: int,
@@ -353,6 +357,7 @@ class VideoPipeline:
 
             # Detecção + Tracking
             detections, balls = self.detector.detect(frame)
+            ball_box = ball_tracker.update(frame_idx, balls)
             tracks = tracker.update(detections, frame)
 
             # Armazena metadata do frame
@@ -362,9 +367,8 @@ class VideoPipeline:
                     for l, t, r, b, tid in tracks
                 ],
                 "balls": [
-                    [float(x1), float(y1), float(x2), float(y2)]
-                    for x1, y1, x2, y2 in balls
-                ],
+                    [float(x) for x in ball_box]
+                ] if ball_box else []
             }
 
             # OCR em subconjunto de frames

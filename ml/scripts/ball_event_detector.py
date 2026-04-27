@@ -60,6 +60,8 @@ class BallEventDetector:
         events: list[dict] = []
         last_event_frame = -999
         event_gap_frames = int(fps * self.min_gap_seconds)
+        recent_hits = set()
+        window = int(fps * 0.3)  # 300ms
 
         for f_idx in target_frames:
             frame_data = video_metadata.get(f_idx)
@@ -71,19 +73,34 @@ class BallEventDetector:
                 continue
 
             # Verifica contato com qualquer bola detectada no frame
-            for ball_box in frame_data["balls"]:
-                if not self._is_ball_near_player(target_box, ball_box):
-                    continue
+            hit = False
 
-                # Aplica cooldown para evitar spam de eventos
-                if f_idx - last_event_frame > event_gap_frames:
-                    events.append({
-                        "type": "toque",
-                        "frame": f_idx,
-                        "time": f_idx / fps,
-                    })
-                    last_event_frame = f_idx
-                break  # um evento por frame é suficiente
+            for ball_box in frame_data["balls"]:
+                if self._is_ball_near_player(target_box, ball_box):
+                    hit = True
+                    recent_hits.add(f_idx)
+                    break
+            
+            has_recent_hit = any(
+                (f_idx - past_f) <= window for past_f in recent_hits
+            )
+
+            # Limpa hits antigos (opcional mas recomendado)
+            recent_hits = {
+                past_f for past_f in recent_hits if (f_idx - past_f) <= window
+            }
+
+            print(f"[BALL] frame={f_idx} | hit={hit} | recent={has_recent_hit}")
+
+            # DECISÃO FINAL
+            if has_recent_hit and (f_idx - last_event_frame > event_gap_frames):
+                events.append({
+                    "type": "toque",
+                    "frame": f_idx,
+                    "time": f_idx / fps,
+                })
+                last_event_frame = f_idx
+                print(f"[EVENTO] Toque detectado no frame {f_idx} (tempo {f_idx / fps:.2f}s)")
 
         return events
 
