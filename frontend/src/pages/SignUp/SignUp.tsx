@@ -50,12 +50,14 @@ export default function SignUp() {
   }
 
   return (
-    <div className="signup-page bg-gradient">
-      <div className="white-container">
+    <div className="signup-page">
+      <div className="signup-card">
 
-        <img src={logo} className="signup-logo" alt="SmartScout" />
-
-        <h2 className="signup-title">Registre-se</h2>
+        <div className="signup-header">
+          <img src={logo} className="signup-logo" alt="SmartScout" />
+          <h2 className="signup-title">Criar conta</h2>
+          <p className="signup-subtitle">Junte-se ao SmartScout hoje</p>
+        </div>
 
         <form className="signup-form" onSubmit={handleSignUp}>
 
@@ -63,10 +65,10 @@ export default function SignUp() {
             <div className="input-group">
               <label className="input-label">Nome</label>
               <div className="input-wrapper">
-                <span className="input-icon"><User/></span> 
+                <span className="input-icon"><User size={16} /></span>
                 <input
                   type="text"
-                  placeholder="Digite seu nome"
+                  placeholder="Seu nome"
                   className="input-base with-icon"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
@@ -79,8 +81,8 @@ export default function SignUp() {
               <div className="input-wrapper">
                 <input
                   type="text"
-                  placeholder="Digite seu sobrenome"
-                  className="input-base"
+                  placeholder="Seu sobrenome"
+                  className="input-base no-icon"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                 />
@@ -91,7 +93,7 @@ export default function SignUp() {
           <div className="input-group">
             <label className="input-label">E-mail</label>
             <div className="input-wrapper">
-              <span className="input-icon"><Mail/></span> 
+              <span className="input-icon"><Mail size={16} /></span>
               <input
                 type="email"
                 placeholder="seu-email@email.com"
@@ -106,10 +108,10 @@ export default function SignUp() {
             <div className="input-group">
               <label className="input-label">Senha</label>
               <div className="input-wrapper">
-                <span className="input-icon"><Lock/></span> 
+                <span className="input-icon"><Lock size={16} /></span>
                 <input
                   type="password"
-                  placeholder="Digite sua senha"
+                  placeholder="Mínimo 8 caracteres"
                   className="input-base with-icon"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -120,10 +122,10 @@ export default function SignUp() {
             <div className="input-group">
               <label className="input-label">Confirmar Senha</label>
               <div className="input-wrapper">
-                <span className="input-icon"><LockKeyhole/></span> 
+                <span className="input-icon"><LockKeyhole size={16} /></span>
                 <input
                   type="password"
-                  placeholder="Confirme sua senha"
+                  placeholder="Repita a senha"
                   className="input-base with-icon"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -141,19 +143,24 @@ export default function SignUp() {
 
           {error && <p className="signup-error">{error}</p>}
 
-          <button type="submit" className="btn btn-primary signup-button" disabled={loading}>
-            {loading ? "Registrando..." : "Registrar"}
+          <button
+            type="submit"
+            className="btn btn-primary signup-button"
+            disabled={loading}
+          >
+            {loading ? "Criando conta..." : "Criar conta"}
           </button>
 
+          <div className="signup-divider"><span>ou</span></div>
+
           <p className="have-account">
-            Já possui conta?{" "} 
+            Já possui conta?{" "}
             <Link to="/login" className="login-link">
               Entrar
             </Link>
           </p>
 
         </form>
-
       </div>
     </div>
   )
