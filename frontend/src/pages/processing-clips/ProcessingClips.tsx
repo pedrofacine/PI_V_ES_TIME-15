@@ -1,57 +1,116 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom"; 
 import { ClipCard, ClipData } from "../../components/clip-card/ClipCard";
 import { Grid } from "../../components/grid/Grid";
-import './ProcessingClips.css'
-import placeholderImg from '../../assets/placeholder.png';
+import './ProcessingClips.css';
 import { DownloadCloud, RefreshCw } from "lucide-react";
+import { JobStatus, ClipResult, getToken, downloadClip } from "../../services/api"; // getJobStatus removido pois usamos SSE
 
-export default function ProcessingClipsPage() {
-    const navigate = useNavigate();
+type ProcessingClipsProps = {
+  job: JobStatus;
+};
 
-    const mockClips: ClipData[] = [
-        { id: '1', title: 'CLIP#001', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '2', title: 'CLIP#002', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '3', title: 'CLIP#003', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '4', title: 'CLIP#004', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '5', title: 'CLIP#005', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '6', title: 'CLIP#006', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '7', title: 'CLIP#007', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '8', title: 'CLIP#008', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '9', title: 'CLIP#009', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '10', title: 'CLIP#010', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '11', title: 'CLIP#011', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-        { id: '12', title: 'CLIP#012', status: 'completed', thumbnailUrl: placeholderImg, duration: '0:15' },
-    ];
+// Converte ClipResult (backend) → ClipData (ClipCard)
+function toClipData(clip: ClipResult, index: number): ClipData {
+  return {
+    id:           clip.id,
+    title:        `CLIP#${String(index + 1).padStart(3, "0")}`,
+    status:       "completed",
+    thumbnailUrl: undefined,
+    duration:     `${Math.floor(clip.duration / 60)}:${String(
+                    Math.round(clip.duration % 60)
+                  ).padStart(2, "0")}`,
+    videoUrl:     clip.file_url,
+  };
+}
 
-    return (
-        <div className="page-container bg-gradient">
-            <div className="white-container big">
-                <div className="processing-header">
-                    <h2 className="processing-title">Seus clipes estão prontos!</h2>
-                    
-                    <div className="progress-bar-container">
-                        <div className="progress-bar-fill finished" />
-                    </div>
-                </div>
+const skeletonClip: ClipData = {
+  id:           "skeleton-processing",
+  title:        "Gerando clipe...",
+  status:       "generating",
+  thumbnailUrl: undefined,
+  duration:     "--:--",
+};
 
-                <Grid>
-                    {mockClips.map(clip => (
-                        <ClipCard key={clip.id} clip={clip} />
-                    ))}
-                </Grid>
+export default function ProcessingClipsView({ job }: ProcessingClipsProps) {
+  const navigate = useNavigate();
+  const isDone = job.status === "COMPLETED";
+  const isError = job.status === "ERROR";
+  const clips  = job.clips ?? [];
 
-                <div className="clips-actions-container">
-                    <button className="btn icon btn-secondary" onClick={() => navigate("/select-player")}>
-                        <RefreshCw size={18} />
-                        Fazer nova análise
-                    </button>
+  function getTitle() {
+    switch (job.status) {
+      case "TRACKING":  return "Mapeando os lances do jogador escolhido...";
+      case "EXTRACTING": return "Recortando os lances do jogador escolhido...";
+      case "COMPLETED": return "Os clipes estão prontos!";
+      case "ERROR":     return "Erro no processamento.";
+      default:          return "Processando...";
+    }
+  }
 
-                    <button className="btn icon btn-primary">
-                        <DownloadCloud size={18} />
-                        Baixar todos os clipes
-                    </button>
-                </div>
-            </div>
+function handleDownloadAll() {
+    clips.forEach((clip, index) => {
+        const title = `CLIP#${String(index + 1).padStart(3, "0")}`;
+        downloadClip(clip.file_url, title).catch(err =>
+            console.error(`Erro ao baixar ${title}:`, err)
+        );
+    });
+}
+
+  return (
+    <div className="page-container bg-gradient">
+      <div className="white-container big">
+
+        <div className="processing-header">
+          <h2 className="processing-title">{getTitle()}</h2>
+
+          <div className="progress-bar-container">
+            <div className={`progress-bar-fill ${isDone ? "finished" : isError ? "error" : "animating"}`} />
+          </div>
         </div>
-    );
+
+        <Grid>
+          {clips.map((clip, i) => (
+            <ClipCard
+              key={clip.id}
+              clip={toClipData(clip, i)}
+            />
+          ))}
+          {job?.status === "EXTRACTING" &&
+            <ClipCard
+              key={skeletonClip.id}
+              clip={skeletonClip}
+            />
+
+          }
+        </Grid>
+
+        {!isDone && clips.length === 0 && (
+          <p style={{ textAlign: "center", color: "#888", margin: "32px 0" }}>
+            Os clipes aparecerão aqui conforme forem gerados...
+          </p>
+        )}
+
+        <div className="clips-actions-container">
+          <button
+            className="btn icon btn-secondary"
+            onClick={() => navigate("/")}
+          >
+            <RefreshCw size={18} />
+            Fazer nova análise
+          </button>
+
+          <button
+            className="btn icon btn-primary"
+            disabled={!isDone || clips.length === 0}
+            onClick={handleDownloadAll}
+          >
+            <DownloadCloud size={18} />
+            Baixar todos os clipes
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
 }

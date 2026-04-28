@@ -5,8 +5,7 @@ import {
   SquarePlay,
   CircleUserRound,
   X,
-  Mail,
-  BadgeCheck
+  Mail
 } from 'lucide-react';
 import './Header.css';
 
@@ -14,11 +13,13 @@ export function Header() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const navigate = useNavigate();
 
-  // Exemplo de dados do usuário
+  const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+
   const user = {
-    name: 'Pedro Ponte Negra',
-    email: 'Pedro@smartscout.com',
-    role: 'Analista Chefe do Setor'
+    name: storedUser.first_name && storedUser.last_name
+      ? `${storedUser.first_name} ${storedUser.last_name}`
+      : 'Usuário',
+    email: storedUser.email || 'sem e-mail',
   };
 
   function handleOpenProfileModal() {
@@ -29,11 +30,23 @@ export function Header() {
     setShowProfileModal(false);
   }
 
-  function handleLogout() {
-    // Exemplo de logout:
+  async function handleLogout() {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch('http://localhost:8000/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao chamar logout no backend:', error);
+    }
+
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-
     setShowProfileModal(false);
     navigate('/login');
   }
@@ -62,22 +75,26 @@ export function Header() {
         </Link>
 
         <div className="actionsGroup">
-          <button
-            className="iconButton"
-            aria-label="Iniciar Análise"
-            title="Iniciar Análise"
-          >
-            <SquarePlay size={40} />
-          </button>
+          <Link to="/clips-history">
+            <button
+              className="iconButton"
+              aria-label="Meus Clipes"
+              title="Meus Clipes"
+            >
+              <SquarePlay size={40} />
+            </button>
+          </Link>
 
-          <button
-            className="iconButton"
-            aria-label="Perfil do Usuário"
-            title="Perfil"
-            onClick={handleOpenProfileModal}
-          >
-            <CircleUserRound size={40} />
-          </button>
+            <button
+                className="iconButton headerAvatarButton"
+                aria-label="Perfil do Usuário"
+                title="Perfil"
+                onClick={handleOpenProfileModal}
+              >
+                <div className="headerAvatar">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+            </button>
         </div>
       </header>
 
@@ -110,14 +127,6 @@ export function Header() {
                 <div>
                   <span className="infoLabel">E-mail</span>
                   <strong>{user.email}</strong>
-                </div>
-              </div>
-
-              <div className="profileInfoRow">
-                <BadgeCheck size={18} />
-                <div>
-                  <span className="infoLabel">Perfil</span>
-                  <strong>{user.role}</strong>
                 </div>
               </div>
             </div>

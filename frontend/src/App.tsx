@@ -5,9 +5,9 @@ import { MainLayout } from "./layouts/MainLayout";
 import InputPage from "./pages/input/input";
 import ProcessingClipsPage from './pages/processing-clips/ProcessingClips';
 import SelectPlayerPage from "./pages/select-player/SelectPlayerPage";
-import ProcessingVideosPage from "./pages/processing-videos/ProcessingVideosPage";
 import ResetPassword from "./pages/resetPassword/resetPassword";
 import ClipsHistory from './pages/clips-history/ClipsHistory';
+import JobContainerPage from './pages/JobContainerPage/JobContainer';
 
 export default function App() {
 
@@ -27,17 +27,10 @@ export default function App() {
           <Route index element={<SignUp/>} />
         </Route>
 
-        <Route path='/processing-clips' element={<MainLayout/>}>
-          <Route index element={<ProcessingClipsPage/>} />
+        <Route path='/processing-clips/:jobId' element={<MainLayout/>}>
+          <Route index element={<JobContainerPage/>} />
         </Route>
 
-        <Route path="/select-player" element={<MainLayout/>}>
-          <Route index element={<SelectPlayerPage/>} />
-        </Route>
-
-        <Route path="/processing-videos" element={<MainLayout/>}>
-          <Route index element={<ProcessingVideosPage/>} />
-        </Route>
 
         <Route path="/reset-password">
           <Route index element={<ResetPassword/>} />

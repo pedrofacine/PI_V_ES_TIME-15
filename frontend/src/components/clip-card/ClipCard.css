@@ -62,7 +62,14 @@
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Volte para 'cover'. O 'fill' vai deixar os jogadores esticados/deformados! */
+    object-fit: cover;
+}
+
+.clip-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
 }
 
 /* Overlays para os diferentes estados (Processando, Erro, etc.) */
