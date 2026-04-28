@@ -172,11 +172,12 @@ export async function createJob(
   form.append("end_ts", String(endTs))
 
   try {
-    const res = await fetchWithTimeout(`${import.meta.env.VITE_API_PATH}/jobs/`, {
+    const res = await fetch(`${import.meta.env.VITE_API_PATH}/jobs/`, {
       method:  "POST",
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body:    form,
       // SEM Content-Type: browser define o boundary do multipart automaticamente
+      // SEM timeout: upload de vídeo pode demorar mais do que o REQUEST_TIMEOUT_MS
     });
     if (res.status === 401) {
       clearSession();

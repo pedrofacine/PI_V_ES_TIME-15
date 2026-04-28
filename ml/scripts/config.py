@@ -114,6 +114,22 @@ FFMPEG_PRESET = "fast"
 
 
 # ==========================================================
+# ANÁLISE CINEMÁTICA (ANOMALIAS DE VELOCIDADE/ACELERAÇÃO)
+# ==========================================================
+# Piso mínimo de velocidade (px/frame) para considerar anomalia
+KINEMATIC_MIN_VELOCITY = 15.0
+
+# Piso mínimo de aceleração (px/frame²) para considerar anomalia
+KINEMATIC_MIN_ACCEL = 8.0
+
+# Número de desvios-padrão acima da média para flagiar como anomalia
+KINEMATIC_STD_MULTIPLIER = 2.5
+
+# Cooldown mínimo entre dois eventos do mesmo track (segundos)
+KINEMATIC_COOLDOWN_SECONDS = 1.5
+
+
+# ==========================================================
 # GPU
 # ==========================================================
 def _check_gpu() -> bool:
