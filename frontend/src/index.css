@@ -3,14 +3,14 @@
   padding: 0;
   box-sizing: border-box;
 }
-
+ 
 :root {
   --color-brand-light: #2872A1;
   --color-brand-dark: #1C5287;
   --color-input-bg: #CBDDE9;
   --color-input-text: #334155;
   --color-input-placeholder: #94A3B8;
-
+ 
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -20,27 +20,28 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
+ 
 html, body {
   width: 100%;
-  height: 100vh;
+  height: 100%;
+  overflow: hidden;
   background-color: #F1F5F9;
   color: #1E293B;
   
 }
-
+ 
 #root {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
-
+ 
 .bg-gradient {
   background: linear-gradient(to bottom, var(--color-brand-light), var(--color-brand-dark));
   color: #ffffff; 
 }
-
+ 
 .btn {
   display: inline-flex;
   justify-content: center;
@@ -55,63 +56,63 @@ html, body {
   cursor: pointer;
   transition: background-color 0.2s ease, transform 0.1s ease;
 }
-
+ 
 .btn.icon {
   padding: 0.75rem 1.5rem; 
   display: flex;
   gap: 0.5rem;
   align-items: center;
 }
-
+ 
 .btn:active {
   transform: scale(0.97);
 }
-
+ 
 .btn:disabled {
   background-color: #94a3b8 !important;
   color: #e2e8f0 !important;          
   cursor: not-allowed;      
   opacity: 0.7;             
 }
-
+ 
 .btn:disabled:active {
   transform: none;          
 }
-
+ 
 .btn-primary {
   background-color: var(--color-brand-light);
   color: #ffffff;
 }
-
+ 
 .btn-primary:hover:not(:disabled) {
   background-color: var(--color-brand-dark);
 }
-
+ 
 .btn-secondary {
   background-color: var(--color-input-bg);
   color: black;
 }
-
+ 
 .input-group {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   width: 100%;
 }
-
+ 
 .input-label {
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--color-input-text);
 }
-
+ 
 .input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
   width: 100%;
 }
-
+ 
 .input-base {
   width: 100%;
   padding: 0.75rem 1rem;
@@ -124,20 +125,20 @@ html, body {
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
+ 
 .input-base.with-icon {
   padding-left: 2.5rem;
 }
-
+ 
 .input-base::placeholder {
   color: var(--color-input-placeholder);
 }
-
+ 
 .input-base:focus {
   border-color: var(--color-brand-light); 
   box-shadow: 0 0 0 3px rgba(40, 114, 161, 0.15);
 }
-
+ 
 .input-icon {
   position: absolute;
   left: 0.8rem;
@@ -146,21 +147,21 @@ html, body {
   color: #64748B;
   pointer-events: none;
 }
-
+ 
 .app-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100%;
   width: 100%;
 }
-
+ 
 .content {
   display: flex;
   flex-direction: column;
   flex: 1; 
   width: 100%;
 }
-
+ 
 .page-container {
   display: flex;
   flex-direction: column;
@@ -170,8 +171,8 @@ html, body {
   justify-content: center; 
   padding: 2rem;
 }
-
-
+ 
+ 
 .white-container {
   background-color: #FFFFFF;
   width: 100%;
@@ -179,19 +180,19 @@ html, body {
   border-radius: 32px;
   padding: 3rem 2rem;
   
-
+ 
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2rem;
   
   color: #1E293B; 
-
+ 
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-
+ 
   margin: auto;
 }
-
+ 
 .white-container.big {
   max-width: 1800px;
   width: 95%;
@@ -203,13 +204,13 @@ html, body {
   padding: 2rem 3rem;
   overflow: hidden;
 }
-
+ 
 .error-message {
     color: #dc2626;
     font-size: 0.875rem;
     font-weight: 500;
     margin-top: 0.5rem;
-
+ 
     display: flex;
     align-items: center;
     gap: 0.35rem;
@@ -217,7 +218,7 @@ html, body {
     
     animation: slideDownFade 0.3s ease-out forwards;
 }
-
+ 
 @keyframes slideDownFade {
     from {
         opacity: 0;

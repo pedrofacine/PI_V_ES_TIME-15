@@ -1,56 +1,30 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ClipCard, ClipData } from "../../components/clip-card/ClipCard";
 import { Grid } from "../../components/grid/Grid";
-import './ClipsHistory.css'
+import './ClipsHistory.css';
+import placeholderImg from '../../assets/placeholder.png';
 import { Search, ChevronDown } from "lucide-react";
-import { listClips, ClipHistoryGroup } from "../../services/api";
-
-const API_HOST = new URL(import.meta.env.VITE_API_PATH ?? "http://127.0.0.1:8000/api/v1").origin;
 
 type ClipWithDate = ClipData & { generatedAt: string; videoUrl?: string };
 
-function groupToClips(group: ClipHistoryGroup): ClipWithDate[] {
-    return group.clips.map((clip, i) => ({
-        id:           clip.id,
-        title:        `CLIP#${String(i + 1).padStart(3, "0")}`,
-        status:       "completed" as const,
-        thumbnailUrl: undefined,
-        duration:     clip.duration,
-        generatedAt:  group.generated_at,
-        fileUrl:      `${API_HOST}${clip.file_url}`,
-    }));
-}
-
 export default function ClipsHistory() {
-    const [groups, setGroups]   = useState<ClipHistoryGroup[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError]     = useState("");
-    const [search, setSearch]   = useState("");
-    const [sortBy, setSortBy]   = useState<"recent" | "oldest">("recent");
+    const [search, setSearch] = useState("");
+    const [sortBy, setSortBy] = useState<"recent" | "oldest">("recent");
     const [modalSession, setModalSession] = useState<{ date: string, clips: ClipWithDate[] } | null>(null);
 
-    useEffect(() => {
-        listClips()
-            .then(setGroups)
-            .catch((err) => setError(err.message))
-            .finally(() => setLoading(false));
-    }, []);
-
-    const allClips: ClipWithDate[] = useMemo(() => {
-        return groups.flatMap(groupToClips);
-    }, [groups]);
+    // TODO: substituir por chamada real à API quando o endpoint de histórico estiver pronto
+    // ex: const clips = await authRequest<ClipWithDate[]>('/jobs/history')
+    const mockClips: ClipWithDate[] = [];
 
     const filteredClips = useMemo(() => {
         const normalized = search.trim().toLowerCase();
-        const filtered = allClips.filter(clip =>
-            !normalized || clip.title.toLowerCase().includes(normalized)
+        const filtered = mockClips.filter(clip => !normalized || clip.title.toLowerCase().includes(normalized));
+        return filtered.sort((a, b) =>
+            sortBy === "recent"
+                ? b.generatedAt.localeCompare(a.generatedAt)
+                : a.generatedAt.localeCompare(b.generatedAt)
         );
-
-        return filtered.sort((a, b) => {
-            if (sortBy === "recent") return b.generatedAt.localeCompare(a.generatedAt);
-            return a.generatedAt.localeCompare(b.generatedAt);
-        });
-    }, [allClips, search, sortBy]);
+    }, [search, sortBy]);
 
     const clipsByDate = useMemo(() => {
         return filteredClips.reduce<Record<string, ClipWithDate[]>>((acc, clip) => {
@@ -61,8 +35,9 @@ export default function ClipsHistory() {
     }, [filteredClips]);
 
     return (
-        <div className="page-container bg-gradient">
-            <div className="white-container big">
+        <div className="history-page">
+            <div className="history-card">
+
                 <header className="history-header">
                     <h1 className="history-title">Histórico de Clipes</h1>
                     <div className="history-actions">
@@ -74,10 +49,8 @@ export default function ClipsHistory() {
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Buscar clipe ou jogador..."
-                                aria-label="Buscar clipe ou jogador"
                             />
                         </div>
-
                         <label className="filter-input">
                             <span>Filtrar por:</span>
                             <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
@@ -94,24 +67,6 @@ export default function ClipsHistory() {
                 </div>
 
                 <div className="scrollable-content">
-                    {loading && (
-                        <p style={{ textAlign: "center", color: "#888", margin: "32px 0" }}>
-                            Carregando clipes...
-                        </p>
-                    )}
-
-                    {error && (
-                        <p style={{ textAlign: "center", color: "red", margin: "32px 0" }}>
-                            {error}
-                        </p>
-                    )}
-
-                    {!loading && !error && Object.keys(clipsByDate).length === 0 && (
-                        <p style={{ textAlign: "center", color: "#888", margin: "32px 0" }}>
-                            Nenhum clipe encontrado.
-                        </p>
-                    )}
-
                     {Object.entries(clipsByDate).map(([date, clips], index) => (
                         <React.Fragment key={date}>
                             <section className="clip-group">
@@ -119,15 +74,9 @@ export default function ClipsHistory() {
                                     <span>Clipes gerados em: </span>
                                     <span className="clip-group-date">{date}</span>
                                 </div>
-
                                 <Grid>
-                                    {clips.slice(0, 5).map(clip => (
-                                        <ClipCard key={clip.id} clip={clip} />
-                                    ))}
-                                    <div
-                                        className="see-all-card"
-                                        onClick={() => setModalSession({ date, clips })}
-                                    >
+                                    {clips.slice(0, 5).map(clip => <ClipCard key={clip.id} clip={clip} />)}
+                                    <div className="see-all-card" onClick={() => setModalSession({ date, clips })}>
                                         <span>Ver Todos</span>
                                         <span className="see-all-count">{clips.length} clipes</span>
                                     </div>
@@ -141,6 +90,7 @@ export default function ClipsHistory() {
                 <div className="footer-note">
                     Os clipes ficam armazenados por até 14 dias após sua geração no nosso site
                 </div>
+
             </div>
 
             {modalSession && (
@@ -151,9 +101,7 @@ export default function ClipsHistory() {
                             <button onClick={() => setModalSession(null)}>✕</button>
                         </div>
                         <Grid>
-                            {modalSession.clips.map(clip => (
-                                <ClipCard key={clip.id} clip={clip} />
-                            ))}
+                            {modalSession.clips.map(clip => <ClipCard key={clip.id} clip={clip} />)}
                         </Grid>
                     </div>
                 </div>
