@@ -247,3 +247,21 @@ export async function downloadClip(fileUrl: string, filename: string): Promise<v
   anchor.remove();
   URL.revokeObjectURL(url);
 }
+
+export async function requestPasswordReset(body: { email: string }): Promise<void> {
+  try {
+    const res = await fetchWithTimeout(`${import.meta.env.VITE_API_PATH}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail ?? "Erro ao solicitar redefinição de senha.");
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError")
+      throw new Error("Servidor não respondeu. Tente novamente.");
+    throw err;
+  }
+}

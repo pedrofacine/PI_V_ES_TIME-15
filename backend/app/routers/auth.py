@@ -4,15 +4,26 @@ Rotas de autenticação: registro e login.
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.auth import get_current_user
 from sqlmodel import Session, select
-
 from app.database import get_session
 from app.models import User
 from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, TokenPayload
 from app.core.security import hash_password, verify_password, create_access_token
-
+from pydantic import BaseModel, Field
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+from app.models.password_reset import PasswordResetToken
+from app.core.email import send_reset_email
+from app.core.security import hash_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=8)
 
 @router.post("/register", response_model=TokenPayload)
 def register(data: UserCreate, session: Session = Depends(get_session)):
@@ -86,4 +97,58 @@ def logout(current_user: User = Depends(get_current_user)):
     Logout. O cliente deve descartar o token localmente.
     """
     # Futuro: adicionar token à blacklist, registrar log, etc.
+    return None
+
+
+@router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
+def forgot_password(data: ForgotPasswordRequest, session: Session = Depends(get_session)):
+    statement = select(User).where(User.email == data.email.lower())
+    user = session.exec(statement).first()
+
+    if not user:
+        return None
+
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+
+    reset = PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=expires_at,
+    )
+    session.add(reset)
+    session.commit()
+
+    send_reset_email(user.email, token)
+    return None
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+def reset_password(data: ResetPasswordRequest, session: Session = Depends(get_session)):
+    # Busca o token
+    statement = select(PasswordResetToken).where(PasswordResetToken.token == data.token)
+    reset = session.exec(statement).first()
+
+    if not reset:
+        raise HTTPException(status_code=400, detail="Token inválido.")
+
+    if reset.used:
+        raise HTTPException(status_code=400, detail="Token já utilizado.")
+
+    if datetime.now(timezone.utc) > reset.expires_at.replace(tzinfo=timezone.utc):
+        raise HTTPException(status_code=400, detail="Token expirado.")
+
+    # Atualiza a senha
+    statement = select(User).where(User.id == reset.user_id)
+    user = session.exec(statement).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    user.password_hash = hash_password(data.new_password)
+    reset.used = True
+
+    session.add(user)
+    session.add(reset)
+    session.commit()
+
     return None

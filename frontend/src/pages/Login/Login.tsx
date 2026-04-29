@@ -9,6 +9,7 @@ export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const justRegistered = location.state?.registered === true
+  const justReset = location.state?.passwordReset === true
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -22,7 +23,7 @@ export default function Login() {
     try {
       const data = await login({ email: email.trim(), password })
       saveSession(data)
-      navigate("/", { replace: true })
+      navigate("/input", { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login.")
     } finally {
@@ -36,12 +37,15 @@ export default function Login() {
 
         <div className="login-header">
           <img src={logo} className="login-logo" alt="SmartScout" />
-          <h2 className="login-title">Bem-vindo de volta</h2>
+          <h2 className="login-title">Bem-vindo!</h2>
           <p className="login-subtitle">Acesse sua conta SmartScout</p>
         </div>
 
         {justRegistered && (
           <p className="login-success">Conta criada com sucesso! Faça login para continuar.</p>
+        )}
+        {justReset && (
+          <p className="login-success">Senha redefinida com sucesso! Faça login.</p>
         )}
 
         <form className="login-form" onSubmit={handleLogin}>

@@ -8,20 +8,22 @@ import ResetPassword from "./pages/resetPassword/resetPassword";
 import InputPage from "./pages/input/input";
 import JobContainerPage from './pages/JobContainerPage/JobContainer';
 import ClipsHistory from './pages/clips-history/ClipsHistory';
+import NewPassword from './pages/NewPassword/NewPassword';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
 
-        <Route path="/login"          element={<Login />} />
+        <Route path="/"          element={<Login />} />
         <Route path="/signup"         element={<SignUp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/new-password" element={<NewPassword />} />
 
         <Route element={<PrivateRoute />}>
 
           <Route element={<MainLayout />}>
-            <Route path="/"              element={<InputPage />} />
+            <Route path="/input"              element={<InputPage />} />
             <Route path="/clips-history" element={<ClipsHistory />} />
           </Route>
 

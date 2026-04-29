@@ -6,6 +6,7 @@ from .video import Video
 from .processingJob import ProcessingJob
 from .clip import Clip
 from .candidates import Candidate
+from .password_reset import PasswordResetToken
 
 # 2. Definimos o __all__ para expor explicitamente o que essa pasta exporta.
 # Isso permite que em outros arquivos você faça:
@@ -16,4 +17,5 @@ __all__ = [
     "ProcessingJob",
     "Clip",
     "Candidate",
+    "PasswordResetToken",
 ]
