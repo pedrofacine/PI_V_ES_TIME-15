@@ -10,9 +10,11 @@ from sqlmodel import Session, select
 from app.database import get_session
 from app.models import User, Video, ProcessingJob, Clip
 from app.core.auth import get_current_user
+from datetime import timezone, timedelta
+
 
 router = APIRouter(prefix="/clips", tags=["clips"])
-
+brasilia = timezone(timedelta(hours=-3))
 
 @router.get("/")
 def list_clips(
@@ -40,7 +42,7 @@ def list_clips(
         result.append({
             "job_id":        str(job.id),
             "target_number": job.target_number,
-            "generated_at":  job.updated_at.strftime("%d/%m/%Y - %H:%M"),
+            "generated_at": job.updated_at.astimezone(brasilia).strftime("%d/%m/%Y - %H:%M"),
             "clips": [
                 {
                     "id":       str(c.id),
