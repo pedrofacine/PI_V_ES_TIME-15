@@ -3,21 +3,28 @@ import logo from "../../assets/logo.png"
 import { SyntheticEvent, useState } from "react"
 import { Mail, ArrowLeft } from "lucide-react"
 import { Link } from "react-router-dom"
+import { requestPasswordReset } from "../../services/api"
 
 export default function ResetPassword() {
   const [email, setEmail] = useState("")
   const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
   const handleResetPassword = async (e: SyntheticEvent) => {
     e.preventDefault()
+    setError("")
+    setMessage("")
+    if (!email.trim()) { setError("Informe seu e-mail."); return }
     setLoading(true)
-
-    // Simula o envio — substituir pela chamada de API real
-    await new Promise((r) => setTimeout(r, 800))
-    console.log("Enviar instruções para:", email)
-    setMessage("Instruções enviadas para o seu e-mail!")
-    setLoading(false)
+    try {
+      await requestPasswordReset({ email: email.trim() })
+      setMessage("Instruções enviadas! Verifique sua caixa de entrada.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao enviar instruções.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -38,24 +45,18 @@ export default function ResetPassword() {
             <label className="input-label">E-mail</label>
             <div className="input-wrapper">
               <span className="input-icon"><Mail size={16} /></span>
-              <input
-                type="email"
-                className="input-base with-icon"
-                placeholder="seu-email@email.com"
-                value={email}
+              <input type="email" className="input-base with-icon"
+                placeholder="seu-email@email.com" value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+                disabled={!!message} />
             </div>
           </div>
 
           {message && <p className="success-message">{message}</p>}
+          {error   && <p className="reset-error">{error}</p>}
 
-          <button
-            type="submit"
-            className="btn btn-primary reset-password-button"
-            disabled={loading || !!message}
-          >
+          <button type="submit" className="btn btn-primary reset-password-button"
+            disabled={loading || !!message}>
             {loading ? "Enviando..." : message ? "Enviado!" : "Prosseguir"}
           </button>
 

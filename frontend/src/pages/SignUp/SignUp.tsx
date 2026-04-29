@@ -33,15 +33,14 @@ export default function SignUp() {
 
     setLoading(true)
     try {
-      const data = await register({
+      await register({
         email: email.trim(),
         password,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
       })
-      localStorage.setItem("token", data.access_token)
-      localStorage.setItem("user", JSON.stringify(data.user))
-      navigate("/", { replace: true })
+      // Não salva sessão — manda para o login com mensagem de sucesso
+      navigate("/login", { replace: true, state: { registered: true } })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao registrar.")
     } finally {
