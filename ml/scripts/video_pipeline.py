@@ -33,6 +33,7 @@ from ml.scripts.config import (
     PROCESS_WIDTH,
     USE_GPU,
 )
+from ml.scripts.kinematic_analyzer import KinematicAnalyzer
 from ml.scripts.jersey_reader import JerseyReader
 from ml.scripts.trackers.ball_tracker import BallTracker
 from ml.scripts.trackers.tracker import PlayerTracker
@@ -63,6 +64,7 @@ class VideoPipeline:
         self.detector = YoloDetector()
         self.jersey_reader = JerseyReader()
         self.ball_event_detector = BallEventDetector()
+        self.kinematic_analyzer = KinematicAnalyzer()
         self.clip_writer = ClipWriter()
         self.color_extractor = ColorExtractor()
 
@@ -537,6 +539,10 @@ class VideoPipeline:
             if self._target_in_frame(video_metadata, f_idx, target_track_ids)
         )
 
+        # Detecta anomalias cinemáticas (velocidade e aceleração) em bola e jogadores
+        kinematic_events = self.kinematic_analyzer.analyze(video_metadata, fps)
+        self._print_kinematic_events(kinematic_events)
+
         # Detecta eventos de interação com a bola
         events = self.ball_event_detector.detect(
             target_frames=target_frames,
@@ -758,6 +764,23 @@ class VideoPipeline:
         nums_str = "_".join(map(str, numbers))
         filename = f"ocr_f{frame_idx:05d}_t{track_id}_leu_{nums_str}.png"
         cv2.imwrite(os.path.join(debug_dir, filename), crop)
+
+    @staticmethod
+    def _print_kinematic_events(events: list[dict]) -> None:
+        """Imprime no terminal os timestamps de anomalias cinemáticas detectadas."""
+        if not events:
+            return
+        for e in events:
+            total_seconds = int(e["time"])
+            mm = total_seconds // 60
+            ss = total_seconds % 60
+            timestamp = f"{mm:02d}:{ss:02d}"
+            unit = "px/frame" if e["type"] == "pico_velocidade" else "px/frame²"
+            print(
+                f"[ANOMALIA] Possível lance aos {timestamp} "
+                f"({e['object']} track={e['track_id']}, "
+                f"{e['type'].replace('_', ' ')}={e['value']}{unit})"
+            )
 
     def _log_metrics(
         self,
