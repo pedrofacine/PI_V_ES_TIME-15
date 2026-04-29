@@ -5,8 +5,6 @@ import './ClipsHistory.css'
 import { Search, ChevronDown } from "lucide-react";
 import { listClips, ClipHistoryGroup } from "../../services/api";
 
-const API_HOST = new URL(import.meta.env.VITE_API_PATH ?? "http://127.0.0.1:8000/api/v1").origin;
-
 type ClipWithDate = ClipData & { generatedAt: string; videoUrl?: string };
 
 function groupToClips(group: ClipHistoryGroup): ClipWithDate[] {
@@ -17,7 +15,7 @@ function groupToClips(group: ClipHistoryGroup): ClipWithDate[] {
         thumbnailUrl: undefined,
         duration:     clip.duration,
         generatedAt:  group.generated_at,
-        fileUrl:      `${API_HOST}${clip.file_url}`,
+        videoUrl:     clip.file_url,
     }));
 }
 

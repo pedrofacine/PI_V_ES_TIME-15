@@ -36,22 +36,27 @@ export default function SelectPlayerView({job, jobId}: SelectPlayerProps) {
   };
 
   const handleConfirmPlayer = async () => {
-    try {
-      await fetch(`${import.meta.env.VITE_API_PATH}/jobs/${jobId}/confirm`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getToken()}` // Se você estiver usando token no app
-        },
-        body: JSON.stringify({
-          candidate_signature: selectedPlayer // O ID do jogador que o usuário clicou
-        })
-      });
-      setIsModalOpen(false);
-    } catch (err) {
-      console.error("Erro ao confirmar o jogador:", err);
-      alert("Falha ao iniciar o recorte. Tente novamente.");
-    }
+      try {
+          const startTs = Number(localStorage.getItem("job_start_ts") ?? 0);
+          const endTs = Number(localStorage.getItem("job_end_ts") ?? 0);
+
+          await fetch(`${import.meta.env.VITE_API_PATH}/jobs/${jobId}/confirm`, {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${getToken()}`
+              },
+              body: JSON.stringify({
+                  candidate_signature: selectedPlayer,
+                  start_ts: startTs,
+                  end_ts: endTs,
+              })
+          });
+          setIsModalOpen(false);
+      } catch (err) {
+          console.error("Erro ao confirmar o jogador:", err);
+          alert("Falha ao iniciar o recorte. Tente novamente.");
+      }
   };
 
   const handleRefineSearch = async () => {

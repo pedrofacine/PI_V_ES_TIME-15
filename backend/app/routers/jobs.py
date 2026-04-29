@@ -311,6 +311,8 @@ async def create_job(
 
 class ConfirmPlayerRequest(BaseModel):
     candidate_signature: str
+    start_ts: int = 0
+    end_ts: int = 0
 
 @router.post("/{job_id}/confirm")
 def confirm_player(
@@ -334,7 +336,7 @@ def confirm_player(
 
     thread = threading.Thread(
         target=run_full_tracking,
-        args=(job.id, job.video.storage_path, job.target_number, payload.candidate_signature, 0, 0),
+        args=(job.id, job.video.storage_path, job.target_number, payload.candidate_signature, payload.start_ts, payload.end_ts),
         daemon=True,
     )
     thread.start()

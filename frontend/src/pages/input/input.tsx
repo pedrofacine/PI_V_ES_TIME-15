@@ -229,6 +229,8 @@ export default function InputPage() {
                 timeRange[0], 
                 timeRange[1]
             );
+            localStorage.setItem("job_start_ts", String(timeRange[0]));
+            localStorage.setItem("job_end_ts", String(timeRange[1]));
             navigate(`/processing-clips/${job_id}`);
         } catch (err: any) {
             setError(err.message);
