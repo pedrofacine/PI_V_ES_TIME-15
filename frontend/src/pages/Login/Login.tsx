@@ -23,7 +23,7 @@ export default function Login() {
     try {
       const data = await login({ email: email.trim(), password })
       saveSession(data)
-      navigate("/input", { replace: true })
+      navigate("/app", { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login.")
     } finally {

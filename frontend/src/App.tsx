@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from "./layouts/MainLayout";
 import { PrivateRoute } from "./components/PrivateRoute/PrivateRoute";
 
+import LandingPage from './pages/landingPage/landingPage';
 import Login from './pages/Login/Login';
 import SignUp from './pages/SignUp/SignUp';
 import ResetPassword from "./pages/resetPassword/resetPassword";
@@ -15,7 +16,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
 
-        <Route path="/"          element={<Login />} />
+        <Route path="/"       element={<LandingPage />} />
+        <Route path="/login"          element={<Login />} />
         <Route path="/signup"         element={<SignUp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/new-password" element={<NewPassword />} />
@@ -23,7 +25,7 @@ export default function App() {
         <Route element={<PrivateRoute />}>
 
           <Route element={<MainLayout />}>
-            <Route path="/input"              element={<InputPage />} />
+            <Route path="/app"              element={<InputPage />} />
             <Route path="/clips-history" element={<ClipsHistory />} />
           </Route>
 
