@@ -8,7 +8,7 @@ identificar frames com comportamento cinemático anômalo.
 import math
 from collections import defaultdict
 
-from scripts.config import (
+from ml.scripts.config import (
     KINEMATIC_COOLDOWN_SECONDS,
     KINEMATIC_MIN_ACCEL,
     KINEMATIC_MIN_VELOCITY,

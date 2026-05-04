@@ -136,9 +136,9 @@ class VideoPipeline:
                         int((y1 + h) * scale)
                     )
                     
-                    # Tenta ler o número deste jogador (passa 0 se não tiver target para não bugar a heurística)
+                    # Tenta ler o número deste jogador (passa *1 se não tiver target para não bugar a heurística)
                     numbers = self.jersey_reader.read_from_bbox(
-                        frame_orig, bbox_orig, target_number or 0
+                        frame_orig, bbox_orig, target_number or -1 # corrigido de 0 para 1, 0 fazia com que a IA lesse número 0, improvavel nas camisas
                     )
                     
                     if not numbers:
@@ -157,29 +157,51 @@ class VideoPipeline:
                         is_duplicate = False
                         for existing_sig, existing_data in candidates_found.items():
                             if existing_data["number"] == num:
-                                # Se é o mesmo número e a cor é parecida (distância < 60), é o mesmo jogador!
-                                if self._color_distance(hex_color, existing_data["color"]) < 60:
+                                # Se é o mesmo número e a cor é parecida (distância < 90), é o mesmo jogador! ** Distancia aumentada de 60 para 90
+                                if self._color_distance(hex_color, existing_data["color"]) < 90:
                                     is_duplicate = True
                                     break
                         
                         if not is_duplicate:
                             signature = f"{num}_{hex_color}"
-                            img_filename = f"cand_{uuid.uuid4().hex[:8]}.jpg"
+                            img_filename = f"cand_numero_{num}_{uuid.uuid4().hex[:8]}.jpg"
                             img_path = os.path.join(output_dir, img_filename)
                             
                             px1, py1, px2, py2 = bbox_orig
                             h_box = py2 - py1
                             w_box = px2 - px1
 
-                            pad_y = int(h_box * 0.15)
-                            pad_x = int(w_box * 0.15)
+                            # 1. Encontra o centro geográfico da bounding box original
+                            center_x = px1 + (w_box // 2)
+                            center_y = py1 + (h_box // 2)
 
-                            cy1 = max(0, py1 - pad_y)
-                            cy2 = min(frame_orig.shape[0], py2 + pad_y)
-                            cx1 = max(0, px1 - pad_x)
-                            cx2 = min(frame_orig.shape[1], px2 + pad_x)
+                            # 2. Define a aresta do quadrado baseada na maior dimensão + 20% de margem
+                            square_size = int(max(w_box, h_box) * 1.2)
+                            half_size = square_size // 2
+
+                            # 3. Calcula as novas coordenadas projetando do centro para as extremidades
+                            cy1_ideal = center_y - half_size
+                            cy2_ideal = center_y + half_size
+                            cx1_ideal = center_x - half_size
+                            cx2_ideal = center_x + half_size
+
+                            # 4. Clamping: Limita as coordenadas às dimensões reais do frame do vídeo
+                            # Isso evita o erro cv2.error de "out of bounds"
+                            cy1 = max(0, cy1_ideal)
+                            cy2 = min(frame_orig.shape[0], cy2_ideal)
+                            cx1 = max(0, cx1_ideal)
+                            cx2 = min(frame_orig.shape[1], cx2_ideal)
 
                             player_crop = frame_orig[cy1:cy2, cx1:cx2]
+                            
+                            #5. Normalização Absoluta: 
+                            # Se o crop bateu na borda do vídeo (ex: cy1 foi limitado a 0), 
+                            # a matriz perdeu a proporção 1:1. Forçamos o resize final 
+                            # para uma resolução quadrada padrão (ex: 256x256 px).
+                            target_resolution = (256, 256)
+                            if player_crop.size > 0:
+                                player_crop = cv2.resize(player_crop, target_resolution, interpolation=cv2.INTER_AREA)
+                            
                             cv2.imwrite(img_path, player_crop)
                             
                             cand_dict = {

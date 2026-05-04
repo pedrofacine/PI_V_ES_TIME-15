@@ -158,8 +158,8 @@ def run_fast_scan(job_id: uuid.UUID, video_path: str, target_number: int, start_
             session.close()
 
     try:
-        from ml.scripts.video_pipeline import VideoPipeline
-        pipeline = VideoPipeline()
+        from ml.scripts.process_video import _get_pipeline
+        pipeline = _get_pipeline()
         output_dir = str(CLIPS_DIR / str(job_id))
         
         pipeline.fast_scan(
@@ -230,8 +230,8 @@ def run_full_tracking(job_id: uuid.UUID, video_path: str, target_number: int, ta
         update_job_status(job_id, "EXTRACTING")
 
     try:
-        from ml.scripts.video_pipeline import VideoPipeline
-        pipeline = VideoPipeline()
+        from ml.scripts.process_video import _get_pipeline
+        pipeline = _get_pipeline()
         output_dir = str(CLIPS_DIR / str(job_id))
         
         pipeline.process(
