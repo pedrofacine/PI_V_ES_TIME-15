@@ -253,6 +253,15 @@ class VideoPipeline:
             Lista de dicionários descrevendo os clipes gerados.
         """
         pipeline_start = time.time()
+
+        # correção no numero do jogador no nome do clipe
+        actual_target_number = target_number
+        if target_signature and "_" in target_signature:
+            try:
+                actual_target_number = int(target_signature.split("_")[0])
+            except ValueError:
+                pass
+
         os.makedirs(output_dir, exist_ok=True)
         debug_dir = self._setup_debug_dir(output_dir, debug)
 
@@ -316,7 +325,7 @@ class VideoPipeline:
             video_path=video_path,
             clip_intervals=clip_intervals,
             events=events,
-            target_number=target_number,
+            target_number=actual_target_number,
             output_dir=output_dir,
             fps=fps,
             total_frames=total_frames,
