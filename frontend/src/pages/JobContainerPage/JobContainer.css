@@ -1,4 +1,4 @@
-.processing-page {
+.job-container-page {
   width: 100%;
   height: 100%;
   display: flex;
@@ -8,10 +8,10 @@
   box-sizing: border-box;
   background: #0a0f1e;
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
 }
  
-.processing-page::before {
+.job-container-page::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -21,7 +21,7 @@
   pointer-events: none;
 }
  
-.processing-page::after {
+.job-container-page::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -32,16 +32,15 @@
   pointer-events: none;
 }
  
-.processing-card {
+.job-state-card {
   position: relative;
   z-index: 1;
   width: 95%;
-  max-width: 1800px;
-  height: 100%;
+  max-width: 560px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 28px;
-  padding: 2rem 3rem;
+  padding: 3rem 2.5rem;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow:
@@ -50,8 +49,9 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
   animation: cardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  overflow: hidden;
 }
  
 @keyframes cardEntrance {
@@ -59,58 +59,46 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
  
-.processing-header {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
-  margin-bottom: 1.5rem;
-  flex-shrink: 0;
-}
- 
-.processing-title {
+.job-state-title {
   font-family: 'Outfit', sans-serif;
   font-size: 1.4rem;
   font-weight: 600;
   color: #ffffff;
   margin: 0;
   text-align: center;
+  letter-spacing: -0.01em;
 }
  
-.progress-bar-container {
-  position: relative;
+.job-state-title.error {
+  color: #f87171;
+}
+ 
+.job-state-message {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  line-height: 1.6;
+  margin: 0;
+}
+ 
+
+.job-state-card .progress-bar-container {
   width: 100%;
+  position: relative;
   height: 6px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 4px;
   overflow: hidden;
 }
  
-.progress-bar-fill {
+.job-state-card .progress-bar-fill.animating {
   position: absolute;
-  top: 0; bottom: 0; left: 0;
-  height: 100%;
+  top: 0; bottom: 0;
+  width: 30%;
   background: linear-gradient(90deg, #2872A1, #5BADDA);
   border-radius: 4px;
-  transition: width 0.5s ease-in-out;
-}
- 
-.progress-bar-fill.animating {
-  width: 30%;
   animation: indeterminate-loading 1.5s infinite ease-in-out;
-}
- 
-.progress-bar-fill.finished {
-  width: 100%;
-  animation: none;
-  left: 0;
-}
- 
-.progress-bar-fill.error {
-  width: 100%;
-  animation: none;
-  left: 0;
-  background: #ef4444;
 }
  
 @keyframes indeterminate-loading {
@@ -118,46 +106,15 @@
   100% { left: 100%; }
 }
  
-.processing-page .empty-state {
-  text-align: center;
-  color: rgba(255, 255, 255, 0.3);
-  font-family: 'DM Sans', sans-serif;
-  margin: 32px 0;
-}
- 
-.clips-actions-container {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-  padding-top: 1rem;
-  margin-top: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  flex-shrink: 0;
-}
- 
-.clips-actions-container .btn-secondary {
+.job-state-card .btn-secondary {
   background: rgba(255, 255, 255, 0.07) !important;
   color: rgba(255, 255, 255, 0.8) !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   font-family: 'DM Sans', sans-serif !important;
   border-radius: 14px !important;
+  transition: all 0.2s ease !important;
 }
  
-.clips-actions-container .btn-secondary:hover:not(:disabled) {
+.job-state-card .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.12) !important;
-}
- 
-.clips-actions-container .btn-primary {
-  background: linear-gradient(135deg, #2872A1 0%, #1C5287 100%) !important;
-  font-family: 'Outfit', sans-serif !important;
-  font-weight: 600 !important;
-  border-radius: 14px !important;
-  box-shadow: 0 4px 20px rgba(40, 114, 161, 0.35), inset 0 1px 0 rgba(255,255,255,0.15) !important;
-}
- 
-.clips-actions-container .btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 6px 28px rgba(40, 114, 161, 0.45), inset 0 1px 0 rgba(255,255,255,0.15) !important;
 }

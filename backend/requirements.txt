@@ -61,3 +61,4 @@ uvicorn==0.41.0
 watchfiles==1.1.1
 websockets==16.0
 wheel==0.46.3
+resend==2.29.0
