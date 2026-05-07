@@ -20,7 +20,7 @@ import uuid
 import cv2
 import numpy as np
 
-from ml.detector import YoloDetector
+from ml.detector import BallDetector, YoloDetector
 from ml.scripts.ball_event_detector import BallEventDetector
 from ml.scripts.clip_writer import ClipWriter
 from ml.scripts.config import (
@@ -62,6 +62,7 @@ class VideoPipeline:
 
         # Componentes (carregados uma vez)
         self.detector = YoloDetector()
+        self.ball_detector = BallDetector()
         self.jersey_reader = JerseyReader()
         self.ball_event_detector = BallEventDetector()
         self.kinematic_analyzer = KinematicAnalyzer()
@@ -389,7 +390,8 @@ class VideoPipeline:
             scale = frame_orig.shape[1] / frame.shape[1]
 
             # Detecção + Tracking
-            detections, balls = self.detector.detect(frame)
+            detections, _ = self.detector.detect(frame)
+            balls = self.ball_detector.detect(frame)
             ball_box = ball_tracker.update(frame_idx, balls)
             tracks = tracker.update(detections, frame)
 

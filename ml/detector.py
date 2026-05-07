@@ -16,6 +16,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from ml.scripts.config import (
+    BALL_MODEL_PATH,
     COCO_BALL_CLS,
     COCO_PERSON_CLS,
     DEFAULT_MODEL_PATH,
@@ -159,3 +160,66 @@ class YoloDetector:
             f"[YoloDetector] player_ids={self.player_classes} "
             f"ball_id={self.ball_class}"
         )
+
+
+class BallDetector:
+    """Detector dedicado de bola usando modelo YOLO específico."""
+
+    BALL_KEYWORDS = ("ball", "sports ball", "soccer ball", "football")
+
+    def __init__(
+        self,
+        model_path: Union[str, Path] = BALL_MODEL_PATH,
+        min_conf: float = YOLO_MIN_CONF,
+        use_gpu: bool = USE_GPU,
+    ) -> None:
+        self.model_path = str(model_path)
+        self.min_conf = min_conf
+        self.use_gpu = use_gpu
+
+        self.model = YOLO(self.model_path)
+        self.ball_class = self._discover_ball_class()
+        self._log_init()
+
+    def detect(self, frame: np.ndarray) -> list[list[float]]:
+        """Retorna apenas os bboxes da bola no frame atual."""
+        results = self.model(
+            frame,
+            verbose=False,
+            conf=self.min_conf,
+            half=self.use_gpu,
+        )
+        return self._parse_detections(results)
+
+    def _discover_ball_class(self) -> int:
+        ball_class: int | None = None
+        for class_id, class_name in self.model.names.items():
+            if any(keyword in class_name.lower() for keyword in self.BALL_KEYWORDS):
+                ball_class = class_id
+                break
+
+        if ball_class is None:
+            ball_class = COCO_BALL_CLS
+
+        return ball_class
+
+    def _parse_detections(self, results) -> list[list[float]]:
+        balls: list[list[float]] = []
+        boxes = results[0].boxes
+        if boxes is None or len(boxes) == 0:
+            return balls
+
+        for box, cls, conf in zip(boxes.xyxy, boxes.cls, boxes.conf):
+            if int(cls) != self.ball_class:
+                continue
+            if float(conf) < self.min_conf:
+                continue
+            x1, y1, x2, y2 = map(float, box)
+            balls.append([x1, y1, x2, y2])
+
+        return balls
+
+    def _log_init(self) -> None:
+        print(f"[BallDetector] Modelo: {self.model_path}")
+        print(f"[BallDetector] Classes: {self.model.names}")
+        print(f"[BallDetector] ball_id={self.ball_class}")

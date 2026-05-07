@@ -20,6 +20,7 @@ MODELS_DIR = ML_ROOT / "models"
 # Modelo padrão. Troque para ML_ROOT / "models" / "best.pt"
 # quando quiser usar o modelo customizado para futebol.
 DEFAULT_MODEL_PATH = "yolov8s.pt"
+BALL_MODEL_PATH = MODELS_DIR / "ball_tracker.pt"
 
 # IDs de classe quando usando modelo COCO padrão
 COCO_PERSON_CLS = [0]
