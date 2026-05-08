@@ -1,7 +1,7 @@
 import "./Login.css"
 import logo from "../../assets/logo.png"
 import { SyntheticEvent, useState } from "react"
-import { Lock, Mail } from "lucide-react"
+import { Lock, Mail, Eye, EyeOff } from "lucide-react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { login, saveSession } from "../../services/api"
 
@@ -10,10 +10,12 @@ export default function Login() {
   const location = useLocation()
   const justRegistered = location.state?.registered === true
   const justReset = location.state?.passwordReset === true
+  
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleLogin = async (e: SyntheticEvent) => {
     e.preventDefault()
@@ -64,9 +66,18 @@ export default function Login() {
             <label className="input-label">Senha</label>
             <div className="input-wrapper">
               <span className="input-icon"><Lock size={16} /></span>
-              <input type="password" className="input-base with-icon"
+              <input type={showPassword ? "text" : "password"} className="input-base with-icon"
                 placeholder="Digite sua senha" value={password}
                 onChange={(e) => setPassword(e.target.value)} />
+                
+              <button 
+                type="button" 
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 

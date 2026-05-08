@@ -1,6 +1,6 @@
 import { SyntheticEvent, useState } from "react"
 import { useSearchParams, useNavigate } from "react-router-dom"
-import { Lock, LockKeyhole, ArrowLeft } from "lucide-react"
+import { Lock, LockKeyhole, ArrowLeft, Eye, EyeOff } from "lucide-react"
 import { Link } from "react-router-dom"
 import logo from "../../assets/logo.png"
 import "../resetPassword/resetPassword.css"
@@ -14,6 +14,8 @@ export default function NewPassword() {
   const [confirm, setConfirm] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault()
@@ -62,9 +64,19 @@ export default function NewPassword() {
             <label className="input-label">Nova Senha</label>
             <div className="input-wrapper">
               <span className="input-icon"><Lock size={16} /></span>
-              <input type="password" className="input-base with-icon"
+              
+              <input type={showPassword ? "text" : "password"} className="input-base with-icon"
                 placeholder="Mínimo 8 caracteres" value={password}
                 onChange={(e) => setPassword(e.target.value)} />
+                
+              <button 
+                type="button" 
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 
@@ -72,9 +84,19 @@ export default function NewPassword() {
             <label className="input-label">Confirmar Senha</label>
             <div className="input-wrapper">
               <span className="input-icon"><LockKeyhole size={16} /></span>
-              <input type="password" className="input-base with-icon"
+              
+              <input type={showConfirm ? "text" : "password"} className="input-base with-icon"
                 placeholder="Repita a senha" value={confirm}
                 onChange={(e) => setConfirm(e.target.value)} />
+                
+              <button 
+                type="button" 
+                className="password-toggle"
+                onClick={() => setShowConfirm(!showConfirm)}
+                tabIndex={-1}
+              >
+                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 
