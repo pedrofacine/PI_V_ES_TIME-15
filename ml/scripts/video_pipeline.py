@@ -32,6 +32,8 @@ from ml.scripts.config import (
     OCR_INTERVAL,
     PROCESS_WIDTH,
     USE_GPU,
+    TRACKING_COLOR_TOLERANCE,
+    FAST_SCAN_COLOR_TOLERANCE
 )
 from ml.scripts.kinematic_analyzer import KinematicAnalyzer
 from ml.scripts.jersey_reader import JerseyReader
@@ -158,8 +160,7 @@ class VideoPipeline:
                         is_duplicate = False
                         for existing_sig, existing_data in candidates_found.items():
                             if existing_data["number"] == num:
-                                # Se é o mesmo número e a cor é parecida (distância < 90), é o mesmo jogador! ** Distancia aumentada de 60 para 90
-                                if self._color_distance(hex_color, existing_data["color"]) < 90:
+                                if self._color_distance(hex_color, existing_data["color"]) < FAST_SCAN_COLOR_TOLERANCE:
                                     is_duplicate = True
                                     break
                         
@@ -366,8 +367,22 @@ class VideoPipeline:
         jersey_map: dict[str, Counter] = defaultdict(Counter)
         max_frame = start_frame - 1
 
+        fps = self._get_safe_fps(cap)
         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
         frame_idx = start_frame
+
+        # ---------------------------------------------------------
+        # CONFIGURAÇÕES DA HEURÍSTICA DE DENSIDADE (FAST-FORWARD)
+        # ---------------------------------------------------------
+        consecutive_low_density = 0
+        MIN_PLAYERS_THRESHOLD = 5
+        TIME_TO_SLEEP_SEC = 3       # Espera 3 segundos de campo vazio para ter certeza
+        FAST_FORWARD_SKIP_SEC = 5   # Dá um salto de 5 segundos no vídeo
+
+        # Ajuste de FPS considerando o FRAME_SKIP (se FRAME_SKIP=3 e FPS=30, processamos 10 fps)
+        processed_fps = fps / max(1, FRAME_SKIP)
+        frames_to_trigger_sleep = int(processed_fps * TIME_TO_SLEEP_SEC)
+        fast_forward_frames = int(fps * FAST_FORWARD_SKIP_SEC)
 
         while True:
             ret, frame_orig = cap.read()
@@ -389,11 +404,46 @@ class VideoPipeline:
             frame = self._resize_frame(frame_orig)
             scale = frame_orig.shape[1] / frame.shape[1]
 
-            # Detecção + Tracking
-            detections, _ = self.detector.detect(frame)
+            # ---------------------------------------------------------
+            # 1. ZONA DE EXCLUSÃO ESPACIAL (Filtragem do Placar)
+            # ---------------------------------------------------------
+            altura_tela = frame.shape[0]
+            zona_morta_topo = altura_tela * 0.15 # Topo de 15% ignorado
+
+            raw_detections, _ = self.detector.detect(frame)
+            valid_detections = []
+
+            for det in raw_detections:
+                bbox, conf, cls = det
+                x1, y1, w, h = bbox
+                
+                # Causa Raiz resolvida: Se o topo da bounding box (y1) estiver na zona morta, ignora.
+                if y1 >= zona_morta_topo:
+                    valid_detections.append(det)
+
+            # ---------------------------------------------------------
+            # 2. HEURÍSTICA DE DENSIDADE (Fast-Forward Dinâmico)
+            # ---------------------------------------------------------
+            if len(valid_detections) < MIN_PLAYERS_THRESHOLD:
+                consecutive_low_density += 1
+            else:
+                consecutive_low_density = 0 # O jogo está a decorrer, reinicia o contador
+
+            if consecutive_low_density > frames_to_trigger_sleep:
+                print(f"[FAST-FORWARD] Campo vazio (frame {frame_idx}). Pulando {FAST_FORWARD_SKIP_SEC}s...")
+                next_frame = frame_idx + fast_forward_frames
+                cap.set(cv2.CAP_PROP_POS_FRAMES, next_frame)
+                frame_idx = next_frame
+                consecutive_low_density = 0 # Reinicia após o salto para dar tempo de reavaliação
+                continue # Pula o processamento pesado (Tracker, OCR) deste ciclo
+
+            # ---------------------------------------------------------
+            # PROCESSAMENTO NORMAL
+            # ---------------------------------------------------------
+            # Passa apenas as detecções validadas (sem placar) para o tracker
             balls = self.ball_detector.detect(frame)
             ball_box = ball_tracker.update(frame_idx, balls)
-            tracks = tracker.update(detections, frame)
+            tracks = tracker.update(valid_detections, frame)
 
             # Armazena metadata do frame
             video_metadata[frame_idx] = {
@@ -463,7 +513,7 @@ class VideoPipeline:
                     crop = self.jersey_reader._torso_crop(frame_orig, *bbox)
                     hex_color = self.color_extractor.get_dominant_color_hex(crop)
                     
-                    if hex_color and self._color_distance(target_color, hex_color) < 80:
+                    if hex_color and self._color_distance(target_color, hex_color) < TRACKING_COLOR_TOLERANCE:
                         # Jogador correto. Cadastra usando a Assinatura Oficial
                         jersey_map[str(track_id)][target_signature] += 1
                     else:

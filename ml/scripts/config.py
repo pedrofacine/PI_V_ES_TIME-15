@@ -129,6 +129,10 @@ KINEMATIC_STD_MULTIPLIER = 2.5
 # Cooldown mínimo entre dois eventos do mesmo track (segundos)
 KINEMATIC_COOLDOWN_SECONDS = 1.5
 
+# Tolerâncias de Distancia de cor (Euclidiana RGB)
+FAST_SCAN_COLOR_TOLERANCE = 130  # Controla a deduplicação de candidatos na UI
+TRACKING_COLOR_TOLERANCE = 80   # Controla a retenção do jogador em áreas de sombra
+
 
 # ==========================================================
 # GPU

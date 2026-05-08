@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from "./layouts/MainLayout";
 import { PrivateRoute } from "./components/PrivateRoute/PrivateRoute";
 
-import LandingPage from './pages/landingPage/landingPage';
+import LandingPage from './pages/landingPage/LandingPage';
 import Login from './pages/Login/Login';
 import SignUp from './pages/SignUp/SignUp';
 import ResetPassword from "./pages/resetPassword/resetPassword";
