@@ -329,6 +329,13 @@ def confirm_player(
 
     if not job.video:
         raise HTTPException(status_code=500, detail="Erro interno: Vídeo não atrelado ao Job.")
+ 
+    if "_" in payload.candidate_signature:
+        try:
+            novo_numero = int(payload.candidate_signature.split("_")[0])
+            job.target_number = novo_numero
+        except ValueError:
+            pass
 
     job.status = "TRACKING"
     session.add(job)

@@ -131,7 +131,7 @@ KINEMATIC_COOLDOWN_SECONDS = 1.5
 
 # Tolerâncias de Distancia de cor (Euclidiana RGB)
 FAST_SCAN_COLOR_TOLERANCE = 130  # Controla a deduplicação de candidatos na UI
-TRACKING_COLOR_TOLERANCE = 80   # Controla a retenção do jogador em áreas de sombra
+TRACKING_COLOR_TOLERANCE = 150   # Controla a retenção do jogador em áreas de sombra
 
 
 # ==========================================================

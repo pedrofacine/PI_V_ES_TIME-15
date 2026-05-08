@@ -149,7 +149,8 @@ class VideoPipeline:
                         
                     for num in numbers:
                         crop = self.jersey_reader._torso_crop(frame_orig, *bbox_orig)
-                        hex_color = self.color_extractor.get_dominant_color_hex(crop)
+                        # CORREÇÃO: Extraindo cor apenas do miolo para evitar piso/fundo
+                        hex_color = self._extract_core_color(crop)
                         
                         if not hex_color:
                             continue
@@ -256,13 +257,14 @@ class VideoPipeline:
         """
         pipeline_start = time.time()
 
-        # correção no numero do jogador no nome do clipe
-        actual_target_number = target_number
         if target_signature and "_" in target_signature:
             try:
-                actual_target_number = int(target_signature.split("_")[0])
+                novo_numero = int(target_signature.split("_")[0])
+                target_number = novo_numero
+                print(f"[PIPELINE] Alvo atualizado pela UI. Novo alvo: Jogador {target_number}")
             except ValueError:
                 pass
+
 
         os.makedirs(output_dir, exist_ok=True)
         debug_dir = self._setup_debug_dir(output_dir, debug)
@@ -327,7 +329,7 @@ class VideoPipeline:
             video_path=video_path,
             clip_intervals=clip_intervals,
             events=events,
-            target_number=actual_target_number,
+            target_number=target_number,
             output_dir=output_dir,
             fps=fps,
             total_frames=total_frames,
@@ -375,9 +377,9 @@ class VideoPipeline:
         # CONFIGURAÇÕES DA HEURÍSTICA DE DENSIDADE (FAST-FORWARD)
         # ---------------------------------------------------------
         consecutive_low_density = 0
-        MIN_PLAYERS_THRESHOLD = 5
-        TIME_TO_SLEEP_SEC = 3       # Espera 3 segundos de campo vazio para ter certeza
-        FAST_FORWARD_SKIP_SEC = 5   # Dá um salto de 5 segundos no vídeo
+        MIN_PLAYERS_THRESHOLD = 1
+        TIME_TO_SLEEP_SEC = 10       # Tempo de espera para avançar
+        FAST_FORWARD_SKIP_SEC = 5   # Tempo do avanço
 
         # Ajuste de FPS considerando o FRAME_SKIP (se FRAME_SKIP=3 e FPS=30, processamos 10 fps)
         processed_fps = fps / max(1, FRAME_SKIP)
@@ -408,7 +410,7 @@ class VideoPipeline:
             # 1. ZONA DE EXCLUSÃO ESPACIAL (Filtragem do Placar)
             # ---------------------------------------------------------
             altura_tela = frame.shape[0]
-            zona_morta_topo = altura_tela * 0.15 # Topo de 15% ignorado
+            zona_morta_topo = altura_tela * 0.08 # Topo de 0.08% ignorado
 
             raw_detections, _ = self.detector.detect(frame)
             valid_detections = []
@@ -490,7 +492,11 @@ class VideoPipeline:
 
         target_color = None
         if target_signature and "_" in target_signature:
-            target_color = target_signature.split("_")[1]
+            try:
+                # Extrai APENAS a cor. O target_number continua a ser o que o utilizador digitou.
+                target_color = target_signature.split("_")[1]
+            except IndexError:
+                pass
         
         for l, t, r, b, track_id in tracks:
             # Converte bbox para coordenadas da imagem original
@@ -501,9 +507,8 @@ class VideoPipeline:
                 int(b * scale),
             )
 
-            numbers = self.jersey_reader.read_from_bbox(
-                frame_orig, bbox, target_number
-            )
+            target_num_pass = target_number if target_number is not None else -1
+            numbers = self.jersey_reader.read_from_bbox(frame_orig, bbox, target_num_pass)
 
             if not numbers:
                 continue
@@ -511,11 +516,11 @@ class VideoPipeline:
             for n in numbers:
                 if target_color and n == target_number:
                     crop = self.jersey_reader._torso_crop(frame_orig, *bbox)
-                    hex_color = self.color_extractor.get_dominant_color_hex(crop)
+                    hex_color = self._extract_core_color(crop)
                     
                     if hex_color and self._color_distance(target_color, hex_color) < TRACKING_COLOR_TOLERANCE:
                         # Jogador correto. Cadastra usando a Assinatura Oficial
-                        jersey_map[str(track_id)][target_signature] += 1
+                        jersey_map[str(track_id)][target_signature] += 5
                     else:
                         # É do outro time. Cadastra com uma tag de lixo para não confundir
                         jersey_map[str(track_id)][f"LIXO_{n}_{hex_color}"] += 1
@@ -798,6 +803,26 @@ class VideoPipeline:
     # ======================================================
     # HELPERS
     # ======================================================
+
+    def _extract_core_color(self, torso_crop: np.ndarray) -> str | None:
+        """Extrai a cor apenas do 'miolo' do torso para ignorar o fundo (chão/quadra)."""
+        if torso_crop.size == 0:
+            return None
+        
+        h, w = torso_crop.shape[:2]
+        cx, cy = w // 2, h // 2
+        margin_w, margin_h = int(w * 0.2), int(h * 0.2)
+        
+        core_crop = torso_crop[
+            max(0, cy - margin_h) : min(h, cy + margin_h),
+            max(0, cx - margin_w) : min(w, cx + margin_w)
+        ]
+        
+        if core_crop.size == 0:
+            return self.color_extractor.get_dominant_color_hex(torso_crop)
+            
+        return self.color_extractor.get_dominant_color_hex(core_crop)
+
     @staticmethod
     def _resize_frame(frame: np.ndarray) -> np.ndarray:
         """Redimensiona o frame para largura máxima de PROCESS_WIDTH."""
