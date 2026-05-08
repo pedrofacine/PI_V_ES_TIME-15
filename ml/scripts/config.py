@@ -5,7 +5,10 @@ Todos os parâmetros ajustáveis estão aqui para facilitar tuning
 sem precisar mexer na lógica de negócio.
 """
 from pathlib import Path
-
+import logging
+import os
+import uuid
+from datetime import datetime
 
 # ==========================================================
 # CAMINHOS
@@ -147,3 +150,59 @@ def _check_gpu() -> bool:
 
 
 USE_GPU = _check_gpu()
+
+# ==========================================================
+# LOGGER
+# ==========================================================
+
+def setup_pipeline_logger(output_dir: str, debug_mode: bool = False) -> tuple[logging.Logger, str]:
+    """
+    Configura e retorna uma instância de logger com múltiplos destinos (ecrã e ficheiro).
+    Gera um Session ID único para garantir a rastreabilidade da execução.
+    
+    Args:
+        output_dir: Diretório onde o ficheiro .log será guardado.
+        debug_mode: Se True, o ecrã também exibe mensagens DEBUG.
+        
+    Returns:
+        Um tuplo contendo a instância do Logger e o Session ID gerado.
+    """
+    session_id = uuid.uuid4().hex
+    
+    # Instancia o logger com um nome único para esta sessão
+    logger = logging.getLogger(f"VideoPipeline_{session_id}")
+    logger.setLevel(logging.DEBUG) # O logger raiz aceita tudo
+
+    # Previne duplicação de logs caso a função seja chamada múltiplas vezes no mesmo contexto
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    # ==========================================
+    # HANDLER 1: Console (Terminal)
+    # ==========================================
+    console_handler = logging.StreamHandler()
+    # No terminal, mostramos INFO, ou DEBUG se a flag for ativada
+    console_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
+    # Formato limpo e direto para leitura humana rápida
+    console_format = logging.Formatter('[%(levelname)s] %(message)s')
+    console_handler.setFormatter(console_format)
+    logger.addHandler(console_handler)
+
+    # ==========================================
+    # HANDLER 2: File (Ficheiro Permanente)
+    # ==========================================
+    log_dir = os.path.join(output_dir, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = os.path.join(log_dir, f"run_{timestamp}_{session_id[:8]}.log")
+    
+    file_handler = logging.FileHandler(log_filename, mode='w', encoding='utf-8')
+    # O ficheiro guarda SEMPRE o nível máximo de detalhe (DEBUG)
+    file_handler.setLevel(logging.DEBUG)
+    # Formato altamente verboso, ideal para análise forense e debugging post-mortem
+    file_format = logging.Formatter('%(asctime)s | %(levelname)-8s | PID:%(process)d | %(funcName)s:%(lineno)d | %(message)s')
+    file_handler.setFormatter(file_format)
+    logger.addHandler(file_handler)
+
+    return logger, session_id

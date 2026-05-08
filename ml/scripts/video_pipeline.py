@@ -16,6 +16,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Callable
 import uuid
+import logging
 
 import cv2
 import numpy as np
@@ -40,7 +41,7 @@ from ml.scripts.jersey_reader import JerseyReader
 from ml.scripts.trackers.ball_tracker import BallTracker
 from ml.scripts.trackers.tracker import PlayerTracker
 from ml.scripts.color_extractor import ColorExtractor
-
+from ml.scripts.config import setup_pipeline_logger
 
 class VideoPipeline:
     """
@@ -60,7 +61,13 @@ class VideoPipeline:
     """
 
     def __init__(self) -> None:
-        print(f"[GPU] {'Ativada' if USE_GPU else 'Desativada — usando CPU'}")
+        init_logger = logging.getLogger(__name__)
+        logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+        
+        init_logger.info(f"[GPU] {'Ativada' if USE_GPU else 'Desativada — usando CPU'}")
+
+        self.logger = init_logger 
+        self.session_id = None
 
         # Componentes (carregados uma vez)
         self.detector = YoloDetector()
@@ -90,8 +97,10 @@ class VideoPipeline:
         Se target_number for fornecido, filtra só por ele. 
         Senão, pega os melhores candidatos de cada número.
         """
+        
+        self.logger, self.session_id = setup_pipeline_logger(output_dir, True) # remover em prod
+        self.logger.info(f"=== INICIANDO FAST SCAN (Sessão: {self.session_id}) ===")
 
-        print(f"[FAST SCAN] Iniciando busca expressa no vídeo...")
         os.makedirs(output_dir, exist_ok=True)
         
         cap = cv2.VideoCapture(video_path)
@@ -104,7 +113,7 @@ class VideoPipeline:
         end_frame = int(end_ts * fps) if end_ts > 0 else total_frames - 1
 
         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-        print(f"[FAST SCAN] Pulando para o frame {start_frame} (limite: {end_frame}).")
+        self.logger.debug(f"[FAST SCAN] Pulando para o frame {start_frame} (limite: {end_frame}).")
 
         candidates_found = {}
 
@@ -112,7 +121,7 @@ class VideoPipeline:
         try:
             while True:
                 if should_stop and should_stop():
-                    print("[FAST SCAN] Interrompido pelo usuário! Iniciando tracking...")
+                    self.logger.warning("[FAST SCAN] Interrompido pelo usuário! Iniciando tracking...")
                     break
 
                 ret, frame_orig = cap.read()
@@ -215,7 +224,7 @@ class VideoPipeline:
                                 "image": f"/uploads/clips/{os.path.basename(output_dir)}/{img_filename}"
                             }
                             candidates_found[signature] = cand_dict
-                            print(f"  [FAST SCAN] NOVO CANDIDATO ENVIADO PARA A TELA: {num}")
+                            self.logger.info(f"[FAST SCAN] Novo candidato encontrado e enviado à UI: {num}")
                             
                             if on_candidate_found:
                                 on_candidate_found(cand_dict)
@@ -223,7 +232,7 @@ class VideoPipeline:
         finally:
             cap.release()
             
-        print(f"[FAST SCAN] Concluído. {len(candidates_found)} perfis distintos encontrados.")
+        self.logger.info(f"[FAST SCAN] Concluído. {len(candidates_found)} perfis distintos encontrados.")
         return list(candidates_found.values())
 
     def process(
@@ -257,11 +266,15 @@ class VideoPipeline:
         """
         pipeline_start = time.time()
 
+        self.logger, self.session_id = setup_pipeline_logger(output_dir, debug)
+        self.logger.info(f"=== INICIANDO PROCESSAMENTO (Sessão: {self.session_id}) ===")
+        self.logger.info(f"Vídeo: {video_path} | Alvo inicial: {target_number}")
+
         if target_signature and "_" in target_signature:
             try:
                 novo_numero = int(target_signature.split("_")[0])
                 target_number = novo_numero
-                print(f"[PIPELINE] Alvo atualizado pela UI. Novo alvo: Jogador {target_number}")
+                self.logger.info(f"Alvo atualizado pela UI. Novo alvo: Jogador {target_number}")
             except ValueError:
                 pass
 
@@ -281,6 +294,17 @@ class VideoPipeline:
         try:
             fps = self._get_safe_fps(cap)
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            duracao_seg = total_frames / max(1, fps)
+
+            self.logger.info("=== METADADOS DO VÍDEO ===")
+            self.logger.info(f"Resolução Original: {width}x{height} | FPS Real: {fps:.2f} | Duração: {duracao_seg:.2f}s")
+            
+            self.logger.info("=== HIPERPARÂMETROS (Para Reprodutibilidade) ===")
+            self.logger.info(f"FRAME_SKIP={FRAME_SKIP} | MIN_OCR_VOTES={MIN_OCR_VOTES} | GAP_TOLERANCE={GAP_TOLERANCE}s | PROCESS_WIDTH={PROCESS_WIDTH}px")
+            self.logger.info("=========================================")
 
             start_frame = int(start_ts * fps)
             end_frame = int(end_ts * fps) if end_ts > 0 else total_frames - 1
@@ -361,9 +385,9 @@ class VideoPipeline:
         debug: bool,
         debug_dir: str | None,
     ) -> tuple[dict, dict, int]:
-        print(f"[1/4] Extraindo metadados com IA ({total_frames} frames)...")
-        print(f"[video] Começando no segundo {start_frame // max(1, int(cap.get(cv2.CAP_PROP_FPS)))} (frame {start_frame})")
-        print(f"[video] Terminando no frame {end_frame}")
+        self.logger.info(f"[1/4] Extraindo metadados com IA ({total_frames} frames)...")
+        self.logger.info(f"[video] Começando no segundo {start_frame // max(1, int(cap.get(cv2.CAP_PROP_FPS)))} (frame {start_frame})")
+        self.logger.info(f"[video] Terminando no frame {end_frame}")
 
         video_metadata: dict[int, dict] = {}
         jersey_map: dict[str, Counter] = defaultdict(Counter)
@@ -410,7 +434,7 @@ class VideoPipeline:
             # 1. ZONA DE EXCLUSÃO ESPACIAL (Filtragem do Placar)
             # ---------------------------------------------------------
             altura_tela = frame.shape[0]
-            zona_morta_topo = altura_tela * 0.08 # Topo de 0.08% ignorado
+            zona_morta_topo = altura_tela * 0.12 
 
             raw_detections, _ = self.detector.detect(frame)
             valid_detections = []
@@ -432,7 +456,7 @@ class VideoPipeline:
                 consecutive_low_density = 0 # O jogo está a decorrer, reinicia o contador
 
             if consecutive_low_density > frames_to_trigger_sleep:
-                print(f"[FAST-FORWARD] Campo vazio (frame {frame_idx}). Pulando {FAST_FORWARD_SKIP_SEC}s...")
+                self.logger.info(f"[FAST-FORWARD] Campo vazio (frame {frame_idx}). Pulando {FAST_FORWARD_SKIP_SEC}s...")
                 next_frame = frame_idx + fast_forward_frames
                 cap.set(cv2.CAP_PROP_POS_FRAMES, next_frame)
                 frame_idx = next_frame
@@ -532,7 +556,7 @@ class VideoPipeline:
                 self._save_debug_crop(
                     frame_orig, bbox, frame_idx, track_id, numbers, debug_dir
                 )
-                print(f"  [MAP] frame={frame_idx} track={track_id} leu={numbers}")
+                self.logger.debug(f"  [MAP] frame={frame_idx} track={track_id} leu={numbers}")
 
     def _color_distance(self, hex1: str, hex2: str) -> float:
         """Calcula a distância 3D entre duas cores (Euclidiana)"""
@@ -567,7 +591,7 @@ class VideoPipeline:
           3. Fallback: se nada bater, aceita tracks cujo TOP número é o alvo
              (mesmo sem atingir MIN_OCR_VOTES)
         """
-        print("[2/4] Resolvendo Identidades dos Jogadores...")
+        self.logger.info("[2/4] Resolvendo Identidades dos Jogadores...")
 
         resolved: dict[str, int | str] = {}
         for tid, counter in jersey_map.items():
@@ -579,8 +603,8 @@ class VideoPipeline:
 
         if debug:
             detailed = {tid: dict(c) for tid, c in jersey_map.items() if c}
-            print(f"  [MAP] Detalhado: {detailed}")
-            print(f"  [MAP] Resolvido: {resolved}")
+            self.logger.debug(f"  [MAP] Detalhado: {detailed}")
+            self.logger.debug(f"  [MAP] Resolvido: {resolved}")
 
         target_val = target_signature if target_signature else target_number
 
@@ -598,7 +622,7 @@ class VideoPipeline:
         if not target_track_ids:
             raise ValueError(f"Jogador alvo não encontrado. Alvo: {target_val}")
 
-        print(f"    ✓ Jogador #{target_val} vinculado aos IDs: {target_track_ids}")
+        self.logger.info(f"    ✓ Jogador #{target_val} vinculado aos IDs: {target_track_ids}")
         return target_track_ids
 
     # ======================================================
@@ -618,7 +642,7 @@ class VideoPipeline:
         Junta frames próximos (dentro de GAP_TOLERANCE) em um único clipe,
         descartando intervalos muito curtos (< MIN_CLIP_FRAMES).
         """
-        print("[3/4] Calculando intervalos de ação...")
+        self.logger.info("[3/4] Calculando intervalos de ação...")
 
         # Coleta todos os frames em que o jogador aparece
         target_frames = sorted(
@@ -638,15 +662,15 @@ class VideoPipeline:
             target_track_ids=target_track_ids,
             fps=fps,
         )
-        print(f"    {len(events)} interações com a bola detectadas.")
+        self.logger.info(f"    {len(events)} interações com a bola detectadas.")
 
         # Agrupa frames em intervalos contíguos
         clip_intervals = self._group_frames_into_intervals(target_frames)
 
         if not target_frames:
-            print("    [!] O jogador não foi encontrado no vídeo.")
+            self.logger.warning("    [!] O jogador não foi encontrado no vídeo.")
         else:
-            print(f"    ✓ {len(clip_intervals)} blocos de ação encontrados (Modo Player Cam).")
+            self.logger.info(f"    ✓ {len(clip_intervals)} blocos de ação encontrados (Modo Player Cam).")
 
         return target_frames, events, clip_intervals
 
@@ -712,7 +736,7 @@ class VideoPipeline:
         on_clip_generated: Callable | None,
     ) -> list[dict]:
         """Fatia o vídeo original em clipes aplicando padding temporal."""
-        print(f"[4/4] Fatiando vídeo em {len(clip_intervals)} clipes...")
+        self.logger.info(f"[4/4] Fatiando vídeo em {len(clip_intervals)} clipes...")
 
         results: list[dict] = []
         padding_frames = int(CLIP_PADDING_SECONDS * fps)
@@ -759,7 +783,7 @@ class VideoPipeline:
         padded_end = min(total_frames - 1, end_f + padding_frames)
 
         if padded_start >= total_frames:
-            print(f"[ERRO] Frame fora do vídeo: {padded_start}")
+            self.logger.error(f"Tentativa de acesso a frame fora dos limites do vídeo: {padded_start}")
             return None
 
         # Lê os frames do clipe
@@ -774,7 +798,7 @@ class VideoPipeline:
             clip_frames.append(self._resize_frame(frame_orig))
 
         if not clip_frames:
-            print(f"[ERRO] Nenhum frame capturado para o clipe {clip_idx}")
+            self.logger.error(f"Falha de I/O: Nenhum frame capturado para o clipe {clip_idx}")
             return None
 
         # Monta nome e path
@@ -823,13 +847,15 @@ class VideoPipeline:
             
         return self.color_extractor.get_dominant_color_hex(core_crop)
 
-    @staticmethod
-    def _resize_frame(frame: np.ndarray) -> np.ndarray:
-        """Redimensiona o frame para largura máxima de PROCESS_WIDTH."""
+    def _resize_frame(self, frame: np.ndarray) -> np.ndarray:
+        """Redimensiona o frame para largura máxima de PROCESS_WIDTH, registando a alteração."""
         h, w = frame.shape[:2]
         if w > PROCESS_WIDTH:
             scale = PROCESS_WIDTH / w
-            frame = cv2.resize(frame, (PROCESS_WIDTH, int(h * scale)))
+            new_h = int(h * scale)
+            frame = cv2.resize(frame, (PROCESS_WIDTH, new_h))
+            # Logamos a transformação apenas em modo DEBUG (vai direto para o ficheiro .log)
+            self.logger.debug(f"[PRÉ-PROCESSAMENTO] Downscale aplicado: {w}x{h} -> {PROCESS_WIDTH}x{new_h} (Scale: {scale:.2f})")
         return frame
 
     @staticmethod
@@ -873,8 +899,8 @@ class VideoPipeline:
         filename = f"ocr_f{frame_idx:05d}_t{track_id}_leu_{nums_str}.png"
         cv2.imwrite(os.path.join(debug_dir, filename), crop)
 
-    @staticmethod
-    def _print_kinematic_events(events: list[dict]) -> None:
+
+    def _print_kinematic_events(self, events: list[dict]) -> None:
         """Imprime no terminal os timestamps de anomalias cinemáticas detectadas."""
         if not events:
             return
@@ -884,7 +910,7 @@ class VideoPipeline:
             ss = total_seconds % 60
             timestamp = f"{mm:02d}:{ss:02d}"
             unit = "px/frame" if e["type"] == "pico_velocidade" else "px/frame²"
-            print(
+            self.logger.info(
                 f"[ANOMALIA] Possível lance aos {timestamp} "
                 f"({e['object']} track={e['track_id']}, "
                 f"{e['type'].replace('_', ' ')}={e['value']}{unit})"
@@ -899,8 +925,10 @@ class VideoPipeline:
     ) -> None:
         """Imprime métricas de performance no final da execução."""
         elapsed = time.time() - start_time
-        print("\n[MÉTRICAS] Performance do Pipeline:")
-        print(f"  -> Total de Frames Analisados: {processed_total - start_frame}")
-        print(f"  -> Tempo Total de Execução: {elapsed:.2f}s ({elapsed / 60:.2f} min)")
-        print(f"  -> Clipes Gerados: {num_clips}")
-        print("[Concluído] Pipeline finalizado com sucesso.")
+        self.logger.info(
+            "\n=== MÉTRICAS DE PERFORMANCE ===\n"
+            f"Total de Frames Analisados: {processed_total - start_frame}\n"
+            f"Tempo Total de Execução: {elapsed:.2f}s ({elapsed / 60:.2f} min)\n"
+            f"Clipes Gerados: {num_clips}\n"
+            "==============================="
+        )
