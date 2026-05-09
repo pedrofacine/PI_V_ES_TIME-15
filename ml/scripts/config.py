@@ -173,6 +173,8 @@ def setup_pipeline_logger(output_dir: str, debug_mode: bool = False) -> tuple[lo
     logger = logging.getLogger(f"VideoPipeline_{session_id}")
     logger.setLevel(logging.DEBUG) # O logger raiz aceita tudo
 
+    logger.propagate = False
+
     # Previne duplicação de logs caso a função seja chamada múltiplas vezes no mesmo contexto
     if logger.hasHandlers():
         logger.handlers.clear()

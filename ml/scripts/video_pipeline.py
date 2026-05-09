@@ -302,6 +302,13 @@ class VideoPipeline:
             self.logger.info("=== METADADOS DO VÍDEO ===")
             self.logger.info(f"Resolução Original: {width}x{height} | FPS Real: {fps:.2f} | Duração: {duracao_seg:.2f}s")
             
+            if width > PROCESS_WIDTH:
+                escala = PROCESS_WIDTH / width
+                altura_proc = int(height * escala)
+                self.logger.info(f"[PRÉ-PROCESSAMENTO] Downscale ativo: {width}x{height} será reduzido para {PROCESS_WIDTH}x{altura_proc} (Fator: {escala:.2f})")
+            else:
+                self.logger.info("[PRÉ-PROCESSAMENTO] Vídeo menor que o PROCESS_WIDTH. Downscale não será aplicado.")
+            
             self.logger.info("=== HIPERPARÂMETROS (Para Reprodutibilidade) ===")
             self.logger.info(f"FRAME_SKIP={FRAME_SKIP} | MIN_OCR_VOTES={MIN_OCR_VOTES} | GAP_TOLERANCE={GAP_TOLERANCE}s | PROCESS_WIDTH={PROCESS_WIDTH}px")
             self.logger.info("=========================================")
@@ -854,8 +861,6 @@ class VideoPipeline:
             scale = PROCESS_WIDTH / w
             new_h = int(h * scale)
             frame = cv2.resize(frame, (PROCESS_WIDTH, new_h))
-            # Logamos a transformação apenas em modo DEBUG (vai direto para o ficheiro .log)
-            self.logger.debug(f"[PRÉ-PROCESSAMENTO] Downscale aplicado: {w}x{h} -> {PROCESS_WIDTH}x{new_h} (Scale: {scale:.2f})")
         return frame
 
     @staticmethod
