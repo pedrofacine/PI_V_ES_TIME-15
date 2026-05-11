@@ -62,30 +62,32 @@ export default function SelectPlayerView({ job, jobId }: SelectPlayerProps) {
           </div>
         </div>
 
-        <p className="select-text">
-          {candidatesList.length > 0 ? "Selecione o jogador que você deseja:" : "Procurando candidatos..."}
-        </p>
+        <div className="select-player-scrollable">
+          <p className="select-text">
+            {candidatesList.length > 0 ? "Selecione o jogador que você deseja:" : "Procurando candidatos..."}
+          </p>
 
-        <Grid>
-          {candidatesList.map(candidate => {
-            const imageUrl = `${import.meta.env.VITE_API_PATH}${candidate.image}` || placeholderImg;
-            return (
-              <div
-                key={candidate.id}
-                className={`player-card ${selectedPlayer === candidate.id ? "selected" : ""}`}
-                onClick={() => setSelectedPlayer(candidate.id)}
-              >
-                <img src={imageUrl} alt={candidate.name} />
-                <p>{candidate.name}{selectedPlayer === candidate.id && " - Selecionado"}</p>
-                <div style={{
-                  width: '16px', height: '16px', borderRadius: '50%',
-                  backgroundColor: candidate.color_hex, margin: '4px auto 0',
-                  border: '1px solid rgba(255,255,255,0.2)'
-                }} title={`Cor detectada: ${candidate.color_hex}`} />
-              </div>
-            );
-          })}
-        </Grid>
+          <Grid>
+            {candidatesList.map(candidate => {
+              const imageUrl = `${import.meta.env.VITE_API_PATH}${candidate.image}` || placeholderImg;
+              return (
+                <div
+                  key={candidate.id}
+                  className={`player-card ${selectedPlayer === candidate.id ? "selected" : ""}`}
+                  onClick={() => setSelectedPlayer(candidate.id)}
+                >
+                  <img src={imageUrl} alt={candidate.name} />
+                  <p>{candidate.name}{selectedPlayer === candidate.id && " - Selecionado"}</p>
+                  <div style={{
+                    width: '16px', height: '16px', borderRadius: '50%',
+                    backgroundColor: candidate.color_hex, margin: '4px auto 0',
+                    border: '1px solid rgba(255,255,255,0.2)'
+                  }} title={`Cor detectada: ${candidate.color_hex}`} />
+                </div>
+              );
+            })}
+          </Grid>
+        </div>
 
         <div className="clips-actions-container">
           <button

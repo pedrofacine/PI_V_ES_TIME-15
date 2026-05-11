@@ -53,6 +53,13 @@
   animation: cardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
 }
+
+.processing-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 0 1rem;
+}
  
 @keyframes cardEntrance {
   from { opacity: 0; transform: translateY(20px) scale(0.98); }

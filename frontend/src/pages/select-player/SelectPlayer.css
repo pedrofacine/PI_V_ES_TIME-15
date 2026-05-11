@@ -53,6 +53,20 @@
   animation: cardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
 }
+
+.select-player-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 0 1rem;
+}
+
+.select-player-scrollable::-webkit-scrollbar { width: 6px; }
+.select-player-scrollable::-webkit-scrollbar-track { background: transparent; }
+.select-player-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
  
 @keyframes cardEntrance {
   from { opacity: 0; transform: translateY(20px) scale(0.98); }

@@ -62,14 +62,16 @@ export default function ProcessingClipsView({ job }: ProcessingClipsProps) {
           </div>
         </div>
 
-        <Grid>
-          {clips.map((clip, i) => <ClipCard key={clip.id} clip={toClipData(clip, i)} />)}
-          {job?.status === "EXTRACTING" && <ClipCard key={skeletonClip.id} clip={skeletonClip} />}
-        </Grid>
+        <div className="processing-scrollable">
+          <Grid>
+            {clips.map((clip, i) => <ClipCard key={clip.id} clip={toClipData(clip, i)} />)}
+            {job?.status === "EXTRACTING" && <ClipCard key={skeletonClip.id} clip={skeletonClip} />}
+          </Grid>
 
-        {!isDone && clips.length === 0 && (
-          <p className="empty-state">Os clipes aparecerão aqui conforme forem gerados...</p>
-        )}
+          {!isDone && clips.length === 0 && (
+            <p className="empty-state">Os clipes aparecerão aqui conforme forem gerados...</p>
+          )}
+        </div>
 
         <div className="clips-actions-container">
           <button className="btn icon btn-secondary" onClick={() => navigate("/")}>
