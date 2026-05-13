@@ -9,11 +9,14 @@ Esta classe é o ponto de extensão para trocar de modelo: se no futuro
 o projeto treinar um YOLO customizado, basta alterar o caminho em config.py
 ou passar model_path no construtor.
 """
+import logging
 from pathlib import Path
 from typing import Union
 
 import numpy as np
 from ultralytics import YOLO
+
+_logger = logging.getLogger(__name__)
 
 from ml.scripts.config import (
     BALL_MODEL_PATH,
@@ -154,9 +157,9 @@ class YoloDetector:
 
     def _log_init(self) -> None:
         """Registra no log o modelo e classes descobertas."""
-        print(f"[YoloDetector] Modelo: {self.model_path}")
-        print(f"[YoloDetector] Classes: {self.model.names}")
-        print(
+        _logger.info(f"[YoloDetector] Modelo: {self.model_path}")
+        _logger.info(f"[YoloDetector] Classes: {self.model.names}")
+        _logger.info(
             f"[YoloDetector] player_ids={self.player_classes} "
             f"ball_id={self.ball_class}"
         )
@@ -220,6 +223,6 @@ class BallDetector:
         return balls
 
     def _log_init(self) -> None:
-        print(f"[BallDetector] Modelo: {self.model_path}")
-        print(f"[BallDetector] Classes: {self.model.names}")
-        print(f"[BallDetector] ball_id={self.ball_class}")
+        _logger.info(f"[BallDetector] Modelo: {self.model_path}")
+        _logger.info(f"[BallDetector] Classes: {self.model.names}")
+        _logger.info(f"[BallDetector] ball_id={self.ball_class}")

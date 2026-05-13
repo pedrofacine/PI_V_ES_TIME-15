@@ -69,7 +69,8 @@ TORSO_Y_END = 0.55
 OCR_UPSCALE_FACTOR = 3
 
 # Tamanho mínimo do crop para rodar OCR (abaixo disso, descartamos)
-MIN_CROP_H = 10
+# 35px filtra crops de torcedores parcialmente visíveis na arquibancada
+MIN_CROP_H = 35
 MIN_CROP_W = 10
 
 
@@ -78,6 +79,10 @@ MIN_CROP_W = 10
 # ==========================================================
 # Número mínimo de votos (leituras consistentes) para "confirmar" um número
 MIN_OCR_VOTES = 2
+
+# Máximo de números distintos que um track pode ter lido e ainda ser considerado
+# Tracks com muita variação (ex: torcedores) são descartados antes da resolução
+MAX_DISTINCT_READINGS = 4
 
 
 # ==========================================================
@@ -135,6 +140,20 @@ KINEMATIC_COOLDOWN_SECONDS = 1.5
 # Tolerâncias de Distancia de cor (Euclidiana RGB)
 FAST_SCAN_COLOR_TOLERANCE = 130  # Controla a deduplicação de candidatos na UI
 TRACKING_COLOR_TOLERANCE = 150   # Controla a retenção do jogador em áreas de sombra
+
+
+# ==========================================================
+# FILTRAGEM DE OVERLAY DE TRANSMISSÃO E BBOXES INVÁLIDAS
+# ==========================================================
+# Dead zone no topo do frame (overlay de placar superior)
+SCOREBOARD_ZONE_TOP = 0.18
+
+# Dead zone na base do frame (overlay de placar inferior)
+SCOREBOARD_ZONE_BOTTOM = 0.10
+
+# Aspect ratio máximo (largura/altura) — bboxes mais largos são descartados
+# Filtra bboxes panorâmicas geradas pelo tracker e overlays horizontais
+MAX_PLAYER_ASPECT_RATIO = 1.5
 
 
 # ==========================================================
