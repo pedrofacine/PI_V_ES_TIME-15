@@ -168,3 +168,16 @@
   transform: translateY(-1px) !important;
   box-shadow: 0 6px 28px rgba(40, 114, 161, 0.45), inset 0 1px 0 rgba(255,255,255,0.15) !important;
 }
+
+@media (max-width: 768px) {
+  .processing-page { padding: 0.75rem; overflow-y: auto; height: auto; min-height: 100%; }
+  .processing-card { padding: 1.25rem 1rem; border-radius: 20px; width: 100%; height: auto; min-height: calc(100vh - 1.5rem); }
+  .processing-title { font-size: 1.1rem; }
+  .clips-actions-container { flex-direction: column; gap: 0.75rem; }
+  .clips-actions-container .btn { width: 100% !important; }
+}
+
+@media (max-width: 480px) {
+  .processing-card { padding: 1rem 0.75rem; }
+  .processing-title { font-size: 1rem; }
+}

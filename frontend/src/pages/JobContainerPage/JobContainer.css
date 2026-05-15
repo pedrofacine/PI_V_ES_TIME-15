@@ -118,3 +118,9 @@
 .job-state-card .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.12) !important;
 }
+
+@media (max-width: 480px) {
+  .job-container-page { padding: 1rem 0.75rem; }
+  .job-state-card { padding: 2rem 1.25rem; border-radius: 20px; }
+  .job-state-title { font-size: 1.2rem; }
+}

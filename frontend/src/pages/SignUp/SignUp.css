@@ -311,3 +311,12 @@
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.2);
 }
+
+@media (max-width: 600px) {
+  .signup-page { padding: 1.25rem 0.75rem; }
+  .signup-card { padding: 2rem 1.25rem; border-radius: 20px; }
+  .signup-title { font-size: 1.4rem; }
+  .signup-logo { width: 52px; height: 52px; }
+  .signup-header { margin-bottom: 1.5rem; }
+  .signup-row { flex-direction: column; gap: 1.1rem; }
+}

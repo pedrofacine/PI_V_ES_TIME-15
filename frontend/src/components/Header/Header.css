@@ -246,7 +246,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #8AA9D9; /* mesma cor azul do avatar grande do modal */
+  background: #8AA9D9; 
   color: #fff;
   display: flex;
   align-items: center;
@@ -259,4 +259,10 @@
 .headerAvatarButton:hover .headerAvatar {
   transform: scale(1.05);
   box-shadow: 0 0 0 3px rgba(138, 169, 217, 0.3);
+}
+
+@media (max-width: 600px) {
+  .header { padding: 0 12px; height: 60px; min-height: 60px; max-height: 60px; }
+  .brand-logo { max-height: 90px; margin-left: -44px; }
+  .actionsGroup { gap: 8px; }
 }
