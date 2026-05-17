@@ -23,6 +23,7 @@ MODELS_DIR = ML_ROOT / "models"
 # Modelo padrão. Troque para ML_ROOT / "models" / "best.pt"
 # quando quiser usar o modelo customizado para futebol.
 DEFAULT_MODEL_PATH = "yolov8s.pt"
+NUMBER_MODEL_PATH = MODELS_DIR / "best.pt"
 BALL_MODEL_PATH = MODELS_DIR / "ball_tracker.pt"
 
 # IDs de classe quando usando modelo COCO padrão
@@ -77,7 +78,7 @@ MIN_CROP_W = 10
 # RESOLUÇÃO DE IDs DOS JOGADORES
 # ==========================================================
 # Número mínimo de votos (leituras consistentes) para "confirmar" um número
-MIN_OCR_VOTES = 2
+MIN_OCR_VOTES = 3
 
 
 # ==========================================================

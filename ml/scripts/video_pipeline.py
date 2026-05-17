@@ -94,8 +94,7 @@ class VideoPipeline:
     ) -> list[dict]:
         """
         Faz uma varredura super rápida no vídeo procurando candidatos.
-        Se target_number for fornecido, filtra só por ele. 
-        Senão, pega os melhores candidatos de cada número.
+        Utiliza processamento em Lote (Batch Inference) para otimização extrema na GPU.
         """
         
         self.logger, self.session_id = setup_pipeline_logger(output_dir, True) # remover em prod
@@ -117,7 +116,6 @@ class VideoPipeline:
 
         candidates_found = {}
 
-        candidates_found = {}
         try:
             while True:
                 if should_stop and should_stop():
@@ -137,36 +135,53 @@ class VideoPipeline:
                 frame = self._resize_frame(frame_orig)
                 scale = frame_orig.shape[1] / frame.shape[1]
 
-                detections, _ = self.detector.detect(frame)
+                # =======================================================
+                # 1. PEGA DETECÇÕES JÁ FILTRADAS PELA ZONA DO PLACAR
+                # =======================================================
+                detecoes_validadas, _ = self._get_valid_detections(frame, scale)
+
+                # =======================================================
+                # 2. PREPARA O LOTE (BATCH) DE RECORTES PARA A GPU
+                # =======================================================
+                crops_lote = []
+                bboxes_lote = []
                 
-                for box, conf, cls in detections:
-                    x1, y1, w, h = box
-                    bbox_orig = (
-                        int(x1 * scale),
-                        int(y1 * scale),
-                        int((x1 + w) * scale),
-                        int((y1 + h) * scale)
-                    )
+                for det in detecoes_validadas:
+                    bbox_orig = det["bbox_orig"]
+                    crop = self.jersey_reader._torso_crop(frame_orig, *bbox_orig)
                     
-                    # Tenta ler o número deste jogador (passa *1 se não tiver target para não bugar a heurística)
-                    numbers = self.jersey_reader.read_from_bbox(
-                        frame_orig, bbox_orig, target_number or -1 # corrigido de 0 para 1, 0 fazia com que a IA lesse número 0, improvavel nas camisas
-                    )
-                    
+                    # Filtro de tamanho para evitar mandar lixo para a IA
+                    if crop.shape[0] >= 10 and crop.shape[1] >= 10:
+                        crops_lote.append(crop)
+                        bboxes_lote.append(bbox_orig)
+
+                # Se não tem ninguém válido neste frame, vai para o próximo
+                if not crops_lote:
+                    continue
+
+                # =======================================================
+                # 3. CHAMA A IA 1 ÚNICA VEZ PARA TODOS OS JOGADORES!
+                # =======================================================
+                target_num_pass = target_number if target_number is not None else -1
+                resultados_lote = self.jersey_reader.read_batch(crops_lote, target_num_pass)
+                
+                # =======================================================
+                # 4. PROCESSA OS RESULTADOS
+                # =======================================================
+                # zip une os bboxes, as imagens recortadas e os números lidos
+                for bbox_orig, crop, numbers in zip(bboxes_lote, crops_lote, resultados_lote):
                     if not numbers:
                         continue
                         
                     for num in numbers:
-                        crop = self.jersey_reader._torso_crop(frame_orig, *bbox_orig)
-                        # CORREÇÃO: Extraindo cor apenas do miolo para evitar piso/fundo
+                        # Extraindo cor apenas do miolo para evitar piso/fundo
+                        # (Repare que usamos o 'crop' já feito, economizando processamento!)
                         hex_color = self._extract_core_color(crop)
                         
                         if not hex_color:
                             continue
 
-                        # ==========================================
-                        # 1. DEDUPLICAÇÃO INTELIGENTE (Distância de Cor)
-                        # ==========================================
+                        # DEDUPLICAÇÃO INTELIGENTE (Distância de Cor)
                         is_duplicate = False
                         for existing_sig, existing_data in candidates_found.items():
                             if existing_data["number"] == num:
@@ -198,7 +213,6 @@ class VideoPipeline:
                             cx2_ideal = center_x + half_size
 
                             # 4. Clamping: Limita as coordenadas às dimensões reais do frame do vídeo
-                            # Isso evita o erro cv2.error de "out of bounds"
                             cy1 = max(0, cy1_ideal)
                             cy2 = min(frame_orig.shape[0], cy2_ideal)
                             cx1 = max(0, cx1_ideal)
@@ -206,10 +220,7 @@ class VideoPipeline:
 
                             player_crop = frame_orig[cy1:cy2, cx1:cx2]
                             
-                            #5. Normalização Absoluta: 
-                            # Se o crop bateu na borda do vídeo (ex: cy1 foi limitado a 0), 
-                            # a matriz perdeu a proporção 1:1. Forçamos o resize final 
-                            # para uma resolução quadrada padrão (ex: 256x256 px).
+                            # 5. Normalização Absoluta
                             target_resolution = (256, 256)
                             if player_crop.size > 0:
                                 player_crop = cv2.resize(player_crop, target_resolution, interpolation=cv2.INTER_AREA)
@@ -440,19 +451,8 @@ class VideoPipeline:
             # ---------------------------------------------------------
             # 1. ZONA DE EXCLUSÃO ESPACIAL (Filtragem do Placar)
             # ---------------------------------------------------------
-            altura_tela = frame.shape[0]
-            zona_morta_topo = altura_tela * 0.12 
-
-            raw_detections, _ = self.detector.detect(frame)
-            valid_detections = []
-
-            for det in raw_detections:
-                bbox, conf, cls = det
-                x1, y1, w, h = bbox
-                
-                # Causa Raiz resolvida: Se o topo da bounding box (y1) estiver na zona morta, ignora.
-                if y1 >= zona_morta_topo:
-                    valid_detections.append(det)
+            deteccoes_validas, bolas_yolo = self._get_valid_detections(frame, scale)
+            valid_detections = [[d["box_yolo"], d["conf"], d["cls"]] for d in deteccoes_validas]
 
             # ---------------------------------------------------------
             # 2. HEURÍSTICA DE DENSIDADE (Fast-Forward Dinâmico)
@@ -474,8 +474,9 @@ class VideoPipeline:
             # PROCESSAMENTO NORMAL
             # ---------------------------------------------------------
             # Passa apenas as detecções validadas (sem placar) para o tracker
-            balls = self.ball_detector.detect(frame)
-            ball_box = ball_tracker.update(frame_idx, balls)
+            #balls = self.ball_detector.detect(frame)
+
+            ball_box = ball_tracker.update(frame_idx, bolas_yolo)
             tracks = tracker.update(valid_detections, frame)
 
             # Armazena metadata do frame
@@ -519,50 +520,55 @@ class VideoPipeline:
         debug: bool,
         debug_dir: str | None,
     ) -> None:
-        """Roda OCR em cada track do frame e atualiza o jersey_map."""
+        """Roda OCR em LOTE em todos os tracks do frame e atualiza o jersey_map."""
 
         target_color = None
         if target_signature and "_" in target_signature:
             try:
-                # Extrai APENAS a cor. O target_number continua a ser o que o utilizador digitou.
                 target_color = target_signature.split("_")[1]
             except IndexError:
                 pass
-        
+
+        # 1. Prepara as listas do Lote
+        crops_lote = []
+        track_ids_lote = []
+        bboxes_orig_lote = []
+
         for l, t, r, b, track_id in tracks:
-            # Converte bbox para coordenadas da imagem original
-            bbox = (
-                int(l * scale),
-                int(t * scale),
-                int(r * scale),
-                int(b * scale),
-            )
+            bbox = (int(l * scale), int(t * scale), int(r * scale), int(b * scale))
+            crop = self.jersey_reader._torso_crop(frame_orig, *bbox)
 
-            target_num_pass = target_number if target_number is not None else -1
-            numbers = self.jersey_reader.read_from_bbox(frame_orig, bbox, target_num_pass)
+            # Só adiciona no lote se o recorte for válido
+            if crop.shape[0] >= 10 and crop.shape[1] >= 10: 
+                crops_lote.append(crop)
+                track_ids_lote.append(track_id)
+                bboxes_orig_lote.append(bbox)
 
+        # Se não há recortes válidos, saímos
+        if not crops_lote:
+            return
+
+        # 2. CHAMA O YOLO 1 ÚNICA VEZ PARA TODOS OS JOGADORES!
+        target_num_pass = target_number if target_number is not None else -1
+        resultados_lote = self.jersey_reader.read_batch(crops_lote, target_num_pass)
+
+        # 3. Processa os resultados
+        for track_id, bbox, crop, numbers in zip(track_ids_lote, bboxes_orig_lote, crops_lote, resultados_lote):
             if not numbers:
                 continue
 
             for n in numbers:
                 if target_color and n == target_number:
-                    crop = self.jersey_reader._torso_crop(frame_orig, *bbox)
                     hex_color = self._extract_core_color(crop)
-                    
                     if hex_color and self._color_distance(target_color, hex_color) < TRACKING_COLOR_TOLERANCE:
-                        # Jogador correto. Cadastra usando a Assinatura Oficial
                         jersey_map[str(track_id)][target_signature] += 5
                     else:
-                        # É do outro time. Cadastra com uma tag de lixo para não confundir
                         jersey_map[str(track_id)][f"LIXO_{n}_{hex_color}"] += 1
                 else:
-                    # Fluxo normal (fallback se não houver signature)
                     jersey_map[str(track_id)][n] += 1
 
             if debug and debug_dir:
-                self._save_debug_crop(
-                    frame_orig, bbox, frame_idx, track_id, numbers, debug_dir
-                )
+                self._save_debug_crop(frame_orig, bbox, frame_idx, track_id, numbers, debug_dir)
                 self.logger.debug(f"  [MAP] frame={frame_idx} track={track_id} leu={numbers}")
 
     def _color_distance(self, hex1: str, hex2: str) -> float:
@@ -834,6 +840,40 @@ class VideoPipeline:
     # ======================================================
     # HELPERS
     # ======================================================
+
+    def _get_valid_detections(self, frame: np.ndarray, scale: float) -> tuple[list, list]:
+        """
+        [NOVO] Roda o YOLO, aplica a zona morta do placar e retorna detecções validadas.
+        """
+        detections, bolas_yolo = self.detector.detect(frame)
+        
+        altura_tela = frame.shape[0]
+        zona_morta_topo = altura_tela * 0.22  # Corta os 22% do topo 
+        
+        valid_detections = []
+        for box, conf, cls in detections:
+            x1, y1, w, h = box
+            
+            # Aplica o filtro do placar
+            if y1 < zona_morta_topo:
+                continue
+                
+            # Já converte as coordenadas para o tamanho original
+            bbox_orig = (
+                int(x1 * scale),
+                int(y1 * scale),
+                int((x1 + w) * scale),
+                int((y1 + h) * scale)
+            )
+            
+            valid_detections.append({
+                "box_yolo": box, 
+                "bbox_orig": bbox_orig,
+                "conf": conf,
+                "cls": cls
+            })
+            
+        return valid_detections, bolas_yolo
 
     def _extract_core_color(self, torso_crop: np.ndarray) -> str | None:
         """Extrai a cor apenas do 'miolo' do torso para ignorar o fundo (chão/quadra)."""

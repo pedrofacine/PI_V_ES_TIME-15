@@ -1,58 +1,45 @@
-"""
-Leitura do número da camisa via OCR.
-
-Responsabilidade única: dado um bounding box de jogador, extrair
-a região do torso, pré-processar a imagem e retornar os números
-lidos com alta confiança.
-
-Esta classe é o ponto de extensão principal para melhorar a precisão
-do pipeline: trocar EasyOCR por CNN própria, PaddleOCR, ou adicionar
-estratégias múltiplas de binarização envolve apenas modificar esta classe.
-"""
 import cv2
-import easyocr
 import numpy as np
+from ultralytics import YOLO
+import logging
 
+# Certifique-se de adicionar NUMBER_MODEL_PATH no seu ml.scripts.config!
 from ml.scripts.config import (
     MIN_CROP_H,
     MIN_CROP_W,
     OCR_MIN_CONFIDENCE,
-    OCR_UPSCALE_FACTOR,
     TORSO_Y_END,
     TORSO_Y_START,
     USE_GPU,
+    NUMBER_MODEL_PATH # <-- O caminho para o seu best.pt
 )
 
+_logger = logging.getLogger(__name__)
 
 class JerseyReader:
     """
-    Leitor de número de camisa baseado em EasyOCR.
+    Leitor de número de camisa baseado no modelo YOLO customizado (best.pt).
 
-    Estratégia atual: crop do torso → upscale → grayscale →
-    Gaussian Blur → CLAHE → EasyOCR com filtro de confiança.
-
-    A classe mantém o reader do EasyOCR como atributo para evitar
-    recarregar os pesos em cada chamada (o carregamento leva ~5s).
+    Estratégia atual: crop do torso -> YOLO Especialista em Números -> 
+    Ordenação Esquerda-Direita -> Filtro de confiança.
     """
 
     def __init__(
         self,
+        model_path = NUMBER_MODEL_PATH,
         min_confidence: float = OCR_MIN_CONFIDENCE,
-        upscale_factor: int = OCR_UPSCALE_FACTOR,
         torso_y_start: float = TORSO_Y_START,
         torso_y_end: float = TORSO_Y_END,
         use_gpu: bool = USE_GPU,
     ) -> None:
         self.min_confidence = min_confidence
-        self.upscale_factor = upscale_factor
         self.torso_y_start = torso_y_start
         self.torso_y_end = torso_y_end
+        self.use_gpu = use_gpu
 
-        # Carrega o reader do EasyOCR apenas uma vez
-        self._reader = easyocr.Reader(["en"], gpu=use_gpu)
-
-        # CLAHE pode ser criado uma vez e reutilizado
-        self._clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4, 4))
+        # 1. Carrega o nosso YOLO treinado para números (1 única vez)
+        self.model = YOLO(model_path)
+        _logger.info(f"[JerseyReader] Modelo Especialista carregado: {model_path}")
 
     def read_from_bbox(
         self,
@@ -60,26 +47,57 @@ class JerseyReader:
         bbox: tuple[int, int, int, int],
         target_number: int,
     ) -> list[int]:
-        """
-        Lê número(s) da camisa a partir do bbox de um jogador no frame.
-
-        Args:
-            frame: Imagem completa (BGR) de onde extrair o crop.
-            bbox: Bounding box (x1, y1, x2, y2) do jogador.
-            target_number: Número que o usuário está procurando. Usado
-                           para relaxar a heurística de tamanho quando
-                           a leitura bate com o alvo.
-
-        Returns:
-            Lista de inteiros com os números lidos (normalmente 0, 1 ou 2 elementos).
-        """
+        
         x1, y1, x2, y2 = bbox
+        
+        # Mantemos a sua excelente lógica de focar apenas no torso
         crop = self._torso_crop(frame, x1, y1, x2, y2)
 
+        # Filtro de tamanho para evitar processar ruído
         if crop.shape[0] < MIN_CROP_H or crop.shape[1] < MIN_CROP_W:
             return []
 
         return self._read_numbers(crop, target_number)
+    
+    def read_batch(self, crops: list[np.ndarray], target_number: int) -> list[list[int]]:
+        """
+        [NOVO] Otimização: Processa múltiplos recortes de uma só vez na GPU!
+        Retorna uma lista contendo as leituras de cada recorte.
+        """
+        if not crops:
+            return []
+
+        # O YOLO aceita nativamente uma lista de imagens!
+        results = self.model(crops, verbose=False, conf=self.min_confidence, half=self.use_gpu)
+
+        batch_numbers = []
+        for res in results:
+            boxes = res.boxes
+            if boxes is None or len(boxes) == 0:
+                batch_numbers.append([])
+                continue
+
+            digits = []
+            for box in boxes:
+                x_min = float(box.xyxy[0][0])
+                cls_id = int(box.cls[0])
+                digits.append((x_min, cls_id))
+
+            if not digits:
+                batch_numbers.append([])
+                continue
+
+            # Ordena da esquerda para a direita
+            digits.sort(key=lambda d: d[0])
+            number_str = "".join(str(d[1]) for d in digits)
+            value = int(number_str)
+
+            if value == 0 and target_number != 0:
+                batch_numbers.append([])
+            else:
+                batch_numbers.append([value])
+
+        return batch_numbers
 
     def _torso_crop(
         self,
@@ -89,12 +107,6 @@ class JerseyReader:
         x2: int,
         y2: int,
     ) -> np.ndarray:
-        """
-        Recorta a região do torso, onde normalmente fica o número da camisa.
-
-        A região é definida como uma faixa vertical do bbox, do
-        torso_y_start ao torso_y_end (frações da altura do bbox).
-        """
         h = y2 - y1
         torso_y1 = y1 + int(h * self.torso_y_start)
         torso_y2 = y1 + int(h * self.torso_y_end)
@@ -107,82 +119,40 @@ class JerseyReader:
 
     def _read_numbers(self, crop: np.ndarray, target_number: int) -> list[int]:
         """
-        Executa OCR no crop já recortado e retorna os números lidos.
-
-        Pipeline de pré-processamento:
-          1. Upscale (CUBIC) para aumentar resolução
-          2. Grayscale
-          3. Gaussian Blur para reduzir ruído em rugas/dobras
-          4. CLAHE para melhorar contraste local
-          5. EasyOCR com allowlist apenas de dígitos
-          6. Filtros de confiança e heurística de tamanho
+        Executa o YOLO no recorte e ordena os dígitos da esquerda para a direita.
         """
-        h, w = crop.shape[:2]
-        if h < 5 or w < 5:
+        # 2. Inferência direta! Sem grayscale, sem upscale, o YOLO cuida disso.
+        # Passamos conf e half para otimizar velocidade se estiver usando GPU.
+        results = self.model(crop, verbose=False, conf=self.min_confidence, half=self.use_gpu)
+
+        boxes = results[0].boxes
+        if boxes is None or len(boxes) == 0:
             return []
 
-        # 1. Upscale
-        upscaled = cv2.resize(
-            crop,
-            (w * self.upscale_factor, h * self.upscale_factor),
-            interpolation=cv2.INTER_CUBIC,
-        )
+        digits = []
+        
+        # 3. Extrai cada dígito detectado
+        for box in boxes:
+            # Pega a coordenada X inicial da caixinha do número (para sabermos quem vem antes)
+            x_min = float(box.xyxy[0][0]) 
+            
+            # Pega o ID da classe (Como treinamos de 0 a 9, o ID é o próprio dígito)
+            cls_id = int(box.cls[0])      
+            
+            digits.append((x_min, cls_id))
 
-        # 2-4. Pré-processamento para OCR
-        enhanced = self._preprocess_for_ocr(upscaled)
+        if not digits:
+            return []
 
-        # 5. OCR
-        detections = self._reader.readtext(
-            enhanced,
-            allowlist="0123456789",
-            detail=1,  # retorna (bbox, texto, confiança)
-        )
+        # 4. A MÁGICA: Ordena da esquerda para a direita com base no X
+        digits.sort(key=lambda d: d[0])
 
-        # 6. Filtros de confiança e heurística
-        return self._filter_detections(detections, target_number)
+        # 5. Concatena (Ex: Lê "1" e "0" -> Transforma na string "10" -> Converte para Int 10)
+        number_str = "".join(str(d[1]) for d in digits)
+        value = int(number_str)
 
-    def _preprocess_for_ocr(self, image: np.ndarray) -> np.ndarray:
-        """Aplica grayscale + Gaussian Blur + CLAHE na imagem."""
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
-        return self._clahe.apply(blur)
+        # 6. Mantemos a sua heurística de segurança para falsos positivos do 0
+        if value == 0 and target_number != 0:
+            return []
 
-    def _filter_detections(
-        self,
-        detections: list,
-        target_number: int,
-    ) -> list[int]:
-        """
-        Filtra as detecções do EasyOCR aplicando regras de qualidade.
-
-        Regras:
-          - Ignora leituras com confiança abaixo do threshold
-          - Ignora leitura "0" quando o target não é 0 (comum falso positivo)
-          - Mantém apenas números de 1-2 dígitos, ou qualquer tamanho se bater com target
-        """
-        results: set[int] = set()
-
-        for _, text, prob in detections:
-            try:
-                confidence = float(prob)
-            except (ValueError, TypeError):
-                continue
-
-            if confidence < self.min_confidence:
-                continue
-
-            text = str(text).strip()
-            if not text.isdigit():
-                continue
-
-            value = int(text)
-
-            # "0" sozinho é quase sempre falso positivo
-            if value == 0 and target_number != 0:
-                continue
-
-            # Aceita 1-2 dígitos, ou qualquer tamanho se for o target
-            if 1 <= len(text) <= 2 or value == target_number:
-                results.add(value)
-
-        return list(results)
+        return [value]
