@@ -572,17 +572,25 @@ class VideoPipeline:
                 self.logger.debug(f"  [MAP] frame={frame_idx} track={track_id} leu={numbers}")
 
     def _color_distance(self, hex1: str, hex2: str) -> float:
-        """Calcula a distância 3D entre duas cores (Euclidiana)"""
-        def hex_to_rgb(h: str):
+        """Calcula a distância perceptual entre duas cores usando o espaço LAB (Visão Humana)"""
+        def hex_to_lab(h: str) -> np.ndarray:
             h = h.lstrip('#')
-            return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+            # Converte Hex string para valores BGR inteiros
+            b, g, r = tuple(int(h[i:i+2], 16) for i in (4, 2, 0))
+            # Cria um "pixel" 1x1 no formato que o OpenCV entende (uint8)
+            pixel_bgr = np.array([[[b, g, r]]], dtype=np.uint8)
+            # Converte para LAB e extrai os valores float
+            pixel_lab = cv2.cvtColor(pixel_bgr, cv2.COLOR_BGR2LAB)
+            return pixel_lab[0][0].astype(float)
         
         try:
-            r1, g1, b1 = hex_to_rgb(hex1)
-            r2, g2, b2 = hex_to_rgb(hex2)
-            return ((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2) ** 0.5
-        except:
-            return 999.0 # Em caso de erro de parsing, assume que as cores são muito diferentes
+            lab1 = hex_to_lab(hex1)
+            lab2 = hex_to_lab(hex2)
+            # Retorna a distância Euclidiana 3D, mas agora no espaço LAB
+            return float(np.linalg.norm(lab1 - lab2))
+        except Exception:
+            self.logger.warning(f"Falha ao calcular cor entre {hex1} e {hex2}")
+            return 999.0 # Em caso de erro de parsing, assume que são muito diferentes
 
     # ======================================================
     # PASSO 2 — RESOLUÇÃO DE IDs
@@ -876,23 +884,27 @@ class VideoPipeline:
         return valid_detections, bolas_yolo
 
     def _extract_core_color(self, torso_crop: np.ndarray) -> str | None:
-        """Extrai a cor apenas do 'miolo' do torso para ignorar o fundo (chão/quadra)."""
+        """Extrai a cor da parte superior do torso (ombros/peito) para evitar o número impresso e o fundo."""
         if torso_crop.size == 0:
             return None
         
         h, w = torso_crop.shape[:2]
-        cx, cy = w // 2, h // 2
-        margin_w, margin_h = int(w * 0.2), int(h * 0.2)
         
-        core_crop = torso_crop[
-            max(0, cy - margin_h) : min(h, cy + margin_h),
-            max(0, cx - margin_w) : min(w, cx + margin_w)
+        # Foca apenas nos 40% superiores da imagem (peito para cima)
+        # E corta 15% das laterais para não pegar a grama/quadra atrás do braço
+        margem_lateral = int(w * 0.15)
+        altura_ombros = int(h * 0.40)
+        
+        shoulders_crop = torso_crop[
+            0 : altura_ombros,
+            margem_lateral : w - margem_lateral
         ]
         
-        if core_crop.size == 0:
+        # Fallback de segurança: se a imagem ficou muito pequena após o recorte, usa o torso inteiro
+        if shoulders_crop.size == 0:
             return self.color_extractor.get_dominant_color_hex(torso_crop)
             
-        return self.color_extractor.get_dominant_color_hex(core_crop)
+        return self.color_extractor.get_dominant_color_hex(shoulders_crop)
 
     def _resize_frame(self, frame: np.ndarray) -> np.ndarray:
         """Redimensiona o frame para largura máxima de PROCESS_WIDTH, registando a alteração."""
