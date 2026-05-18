@@ -43,7 +43,6 @@ export default function ClipsHistory() {
         const filtered = allClips.filter(clip =>
             !normalized || clip.title.toLowerCase().includes(normalized)
         );
-
         return filtered.sort((a, b) => {
             if (sortBy === "recent") return b.generatedAt.localeCompare(a.generatedAt);
             return a.generatedAt.localeCompare(b.generatedAt);
@@ -59,8 +58,10 @@ export default function ClipsHistory() {
     }, [filteredClips]);
 
     return (
-        <div className="page-container bg-gradient">
-            <div className="white-container big">
+        <div className="history-page">
+            <div className="history-card">
+
+                {/* ── Header ── */}
                 <header className="history-header">
                     <h1 className="history-title">Histórico de Clipes</h1>
                     <div className="history-actions">
@@ -78,7 +79,10 @@ export default function ClipsHistory() {
 
                         <label className="filter-input">
                             <span>Filtrar por:</span>
-                            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as "recent" | "oldest")}
+                            >
                                 <option value="recent">Mais recente</option>
                                 <option value="oldest">Mais antigo</option>
                             </select>
@@ -87,25 +91,27 @@ export default function ClipsHistory() {
                     </div>
                 </header>
 
+                {/* ── Divider ── */}
                 <div className="progress-bar-container">
                     <div className="progress-bar-fill finished" />
                 </div>
 
+                {/* ── Conteúdo scrollável ── */}
                 <div className="scrollable-content">
                     {loading && (
-                        <p style={{ textAlign: "center", color: "#888", margin: "32px 0" }}>
+                        <p style={{ textAlign: "center", color: "rgba(255,255,255,0.4)", margin: "32px 0" }}>
                             Carregando clipes...
                         </p>
                     )}
 
                     {error && (
-                        <p style={{ textAlign: "center", color: "red", margin: "32px 0" }}>
+                        <p style={{ textAlign: "center", color: "#f87171", margin: "32px 0" }}>
                             {error}
                         </p>
                     )}
 
                     {!loading && !error && Object.keys(clipsByDate).length === 0 && (
-                        <p style={{ textAlign: "center", color: "#888", margin: "32px 0" }}>
+                        <p style={{ textAlign: "center", color: "rgba(255,255,255,0.4)", margin: "32px 0" }}>
                             Nenhum clipe encontrado.
                         </p>
                     )}
@@ -131,16 +137,21 @@ export default function ClipsHistory() {
                                     </div>
                                 </Grid>
                             </section>
-                            {index < Object.entries(clipsByDate).length - 1 && <hr className="group-separator" />}
+
+                            {index < Object.entries(clipsByDate).length - 1 && (
+                                <hr className="group-separator" />
+                            )}
                         </React.Fragment>
                     ))}
                 </div>
 
+                {/* ── Footer ── */}
                 <div className="footer-note">
                     Os clipes ficam armazenados por até 14 dias após sua geração no nosso site
                 </div>
             </div>
 
+            {/* ── Modal ── */}
             {modalSession && (
                 <div className="modal-overlay" onClick={() => setModalSession(null)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
