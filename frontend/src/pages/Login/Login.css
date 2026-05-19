@@ -116,7 +116,7 @@
  
 .login-page .input-base {
   width: 100%;
-  padding: 0.85rem 1rem 0.85rem 2.75rem;
+  padding: 0.85rem 2.75rem 0.85rem 2.75rem; /* Ajuste no padding direito para o botão de senha */
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
@@ -125,6 +125,7 @@
   font-size: 0.95rem;
   outline: none;
   transition: all 0.2s ease;
+  box-sizing: border-box; /* Garante que o padding não quebre o tamanho do input */
 }
  
 .login-page .input-base::placeholder {
@@ -146,6 +147,31 @@
   width: 1rem;
   height: 1rem;
   pointer-events: none;
+}
+ 
+/* Novo: Estilos para o botão de mostrar/ocultar senha */
+.login-page .password-toggle {
+  position: absolute;
+  right: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  width: auto;
+  height: auto;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  outline: none;
+}
+ 
+.login-page .password-toggle:hover,
+.login-page .password-toggle:focus {
+  color: rgba(255, 255, 255, 0.7);
 }
  
 .forgot-password {
@@ -255,7 +281,7 @@
   25% { transform: translateX(-6px); }
   75% { transform: translateX(6px); }
 }
-
+ 
 .login-success {
   padding: 0.7rem 1rem;
   background: rgba(34, 197, 94, 0.1);
@@ -267,8 +293,16 @@
   text-align: center;
   animation: fadeIn 0.3s ease;
 }
-
+ 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .login-page { padding: 1.25rem 0.75rem; }
+  .login-card { padding: 2rem 1.25rem; border-radius: 20px; }
+  .login-title { font-size: 1.4rem; }
+  .login-logo { width: 56px; height: 56px; }
+  .login-header { margin-bottom: 1.75rem; }
 }

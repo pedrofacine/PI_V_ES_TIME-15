@@ -1,8 +1,8 @@
 .input-page {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 2rem 1rem;
   box-sizing: border-box;
@@ -52,11 +52,12 @@
   align-items: center;
   gap: 1.5rem;
   animation: cardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  margin: auto;
 }
  
 @keyframes cardEntrance {
-  from { opacity: 0; transform: translateY(20px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
 }
  
 .upload-area {
@@ -123,9 +124,7 @@
   transition: all 0.2s ease;
 }
  
-.input-page .input-base::placeholder {
-  color: rgba(255, 255, 255, 0.2);
-}
+.input-page .input-base::placeholder { color: rgba(255, 255, 255, 0.2); }
  
 .input-page .input-base:focus {
   background: rgba(40, 114, 161, 0.1);
@@ -133,20 +132,16 @@
   box-shadow: 0 0 0 3px rgba(40, 114, 161, 0.12);
 }
  
-.input-page .input-icon {
-  color: rgba(255, 255, 255, 0.3);
-}
+.input-page .input-icon { color: rgba(255, 255, 255, 0.3); }
  
-.image-select-wrapper {
-  cursor: pointer;
-}
+.image-select-wrapper { cursor: pointer; }
  
 .image-select-text {
   display: flex;
   align-items: center;
   color: rgba(255, 255, 255, 0.2);
   user-select: none;
-  height: 100%;
+  min-height: 100%;
   box-sizing: border-box;
 }
  
@@ -190,7 +185,6 @@
   background-color: #0a0f1e;
   display: flex;
   flex-direction: column;
-  gap: 0;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
  
@@ -349,4 +343,25 @@
   font-size: 0.85rem;
   text-align: center;
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .input-page { padding: 1rem 0.75rem; }
+  .input-card { padding: 1.5rem 1rem; gap: 1rem; border-radius: 20px; max-width: 100%; }
+  .upload-area { padding: 2rem 1rem; max-width: 100%; }
+  .video-preview-wrapper { max-width: 100%; }
+  .inputs-row { flex-direction: column; }
+  .trim-labels { flex-wrap: wrap; gap: 0.5rem; }
+  .btn-analyze {
+    padding: 0.85rem 1.5rem !important;
+    font-size: 0.95rem !important;
+    width: 100% !important;
+    border-radius: 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .input-card { padding: 1.25rem 0.75rem; }
+  .trim-controls { padding: 1rem; }
+  .time-input-editable { width: 60px; font-size: 0.82rem; }
 }

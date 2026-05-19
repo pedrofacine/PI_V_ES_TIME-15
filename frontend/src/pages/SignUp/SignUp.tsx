@@ -1,7 +1,7 @@
 import "./SignUp.css"
 import logo from "../../assets/logo.png"
 import { SyntheticEvent, useState } from "react"
-import { Lock, LockKeyhole, Mail, User } from "lucide-react"
+import { Lock, LockKeyhole, Mail, User, Eye, EyeOff } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { register } from "../../services/api"
 
@@ -14,6 +14,8 @@ export default function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const handleSignUp = async (e: SyntheticEvent) => {
     e.preventDefault()
@@ -39,7 +41,6 @@ export default function SignUp() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
       })
-      // Não salva sessão — manda para o login com mensagem de sucesso
       navigate("/login", { replace: true, state: { registered: true } })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao registrar.")
@@ -109,12 +110,20 @@ export default function SignUp() {
               <div className="input-wrapper">
                 <span className="input-icon"><Lock size={16} /></span>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Mínimo 8 caracteres"
                   className="input-base with-icon"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
@@ -123,12 +132,20 @@ export default function SignUp() {
               <div className="input-wrapper">
                 <span className="input-icon"><LockKeyhole size={16} /></span>
                 <input
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="Repita a senha"
                   className="input-base with-icon"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
           </div>

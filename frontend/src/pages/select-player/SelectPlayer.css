@@ -53,6 +53,20 @@
   animation: cardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
 }
+
+.select-player-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 0 1rem;
+}
+
+.select-player-scrollable::-webkit-scrollbar { width: 6px; }
+.select-player-scrollable::-webkit-scrollbar-track { background: transparent; }
+.select-player-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
  
 @keyframes cardEntrance {
   from { opacity: 0; transform: translateY(20px) scale(0.98); }
@@ -273,4 +287,21 @@
 .btn-modal-confirm:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 22px rgba(40, 114, 161, 0.45);
+}
+
+@media (max-width: 768px) {
+  .select-player-page { padding: 0.75rem; overflow-y: auto; height: auto; min-height: 100%; }
+  .select-player-card { padding: 1.25rem 1rem; border-radius: 20px; width: 100%; height: auto; min-height: calc(100vh - 1.5rem); }
+  .processing-title { font-size: 1.1rem; }
+  .clips-actions-container { flex-direction: column; gap: 0.75rem; }
+  .clips-actions-container .btn { width: 100% !important; }
+  .modal-card { width: 95%; padding: 1.5rem 1rem; }
+  .preview-image-container img { width: 100%; height: auto; max-height: 200px; }
+  .modal-footer-buttons { flex-direction: column; }
+  .btn-modal-cancel, .btn-modal-confirm { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .select-player-card { padding: 1rem 0.75rem; }
+  .player-card img { width: 90px; height: 60px; }
 }
