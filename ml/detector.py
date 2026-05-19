@@ -4,6 +4,8 @@ import numpy as np
 import logging
 from ultralytics import YOLO
 
+_logger = logging.getLogger(__name__)
+
 from ml.scripts.config import (
     BALL_MODEL_PATH,
     COCO_BALL_CLS,

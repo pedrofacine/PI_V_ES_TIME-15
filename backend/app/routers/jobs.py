@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.database import get_session
+from app.database import get_session, engine
 from app.models import User, Video, ProcessingJob, Clip, Candidate
 from app.core.auth import get_current_user
 
@@ -21,7 +21,6 @@ import json
 import time
 from fastapi.responses import StreamingResponse
 from fastapi import Query
-from app.database import get_session as _get_session
 from app.models import ProcessingJob
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -36,55 +35,51 @@ CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.get("/{job_id}/stream")
-def stream_job_status(
-    job_id: uuid.UUID,
-    session: Session = Depends(get_session),
-):
+def stream_job_status(job_id: uuid.UUID):
     def event_generator():
         while True:
-            # 1. LIMPEZA DE CACHE (Força a leitura dos dados reais do banco)
-            session.expire_all()
-            
-            # 2. Busca o status atual no banco
-            job = session.get(ProcessingJob, job_id)
-            if not job:
-                yield f"data: {json.dumps({'error': 'Job não encontrado'})}\n\n"
-                break
-            
-            clips = session.exec(select(Clip).where(Clip.job_id == job_id)).all()
-            candidatos = session.exec(select(Candidate).where(Candidate.job_id == job_id)).all()
-            
-            payload = {
-                "job_id": str(job.id),
-                "status": job.status,
-                "candidates": [
-                    {
-                        "id": c.signature,          # O React espera 'id', nós mandamos a 'signature'
-                        "name": c.name,
-                        "number": c.number,
-                        "color_hex": c.color_hex,
-                        "image": c.image_path,      # O React espera 'image', mandamos o 'image_path'
-                        "is_target": c.is_target
-                    }
-                    for c in candidatos
-                ],
-                "clips": [
-                    {
-                        "id": str(c.id),
-                        "file_url": f"/uploads/clips/{job_id}/{Path(c.storage_path).name}",
-                        "start_timestamp": c.start_timestamp,
-                        "end_timestamp": c.end_timestamp,
-                        "duration": round(c.end_timestamp - c.start_timestamp, 2),
-                    }
-                    for c in clips
-                ]
-            }
+            with Session(engine) as session:
+                job = session.get(ProcessingJob, job_id)
+                if not job:
+                    yield f"data: {json.dumps({'error': 'Job não encontrado'})}\n\n"
+                    return
+
+                clips = session.exec(select(Clip).where(Clip.job_id == job_id)).all()
+                candidatos = session.exec(select(Candidate).where(Candidate.job_id == job_id)).all()
+
+                payload = {
+                    "job_id": str(job.id),
+                    "status": job.status,
+                    "candidates": [
+                        {
+                            "id": c.signature,
+                            "name": c.name,
+                            "number": c.number,
+                            "color_hex": c.color_hex,
+                            "image": c.image_path,
+                            "is_target": c.is_target
+                        }
+                        for c in candidatos
+                    ],
+                    "clips": [
+                        {
+                            "id": str(c.id),
+                            "file_url": f"/uploads/clips/{job_id}/{Path(c.storage_path).name}",
+                            "start_timestamp": c.start_timestamp,
+                            "end_timestamp": c.end_timestamp,
+                            "duration": round(c.end_timestamp - c.start_timestamp, 2),
+                        }
+                        for c in clips
+                    ]
+                }
+
+                done = job.status in ["COMPLETED", "ERROR"]
 
             yield f"data: {json.dumps(payload)}\n\n"
 
-            if job.status in ["COMPLETED", "ERROR"]:
-                break
-            
+            if done:
+                return
+
             time.sleep(2.0)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

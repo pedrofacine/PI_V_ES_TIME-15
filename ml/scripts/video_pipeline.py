@@ -11,6 +11,7 @@ Divide o fluxo em 4 passos bem definidos:
   4. Escrita dos clipes (fatia o vídeo original)
 """
 import os
+import threading
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -30,11 +31,17 @@ from ml.scripts.config import (
     GAP_TOLERANCE,
     MIN_CLIP_FRAMES,
     MIN_OCR_VOTES,
+    MAX_DISTINCT_READINGS,
     OCR_INTERVAL,
     PROCESS_WIDTH,
     USE_GPU,
     TRACKING_COLOR_TOLERANCE,
-    FAST_SCAN_COLOR_TOLERANCE
+    FAST_SCAN_COLOR_TOLERANCE,
+    SCOREBOARD_ZONE_TOP,
+    SCOREBOARD_ZONE_BOTTOM,
+    MAX_PLAYER_ASPECT_RATIO,
+    TORSO_Y_START,
+    TORSO_Y_END,
 )
 from ml.scripts.kinematic_analyzer import KinematicAnalyzer
 from ml.scripts.jersey_reader import JerseyReader
@@ -63,11 +70,14 @@ class VideoPipeline:
     def __init__(self) -> None:
         init_logger = logging.getLogger(__name__)
         logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
-        
-        init_logger.info(f"[GPU] {'Ativada' if USE_GPU else 'Desativada — usando CPU'}")
 
-        self.logger = init_logger 
-        self.session_id = None
+        # Estado por thread: logger e session_id são isolados por thread para
+        # evitar race condition quando dois jobs rodam simultaneamente no singleton.
+        self._tl = threading.local()
+        self._tl.logger = init_logger
+        self._tl.session_id = None
+
+        init_logger.info(f"[GPU] {'Ativada' if USE_GPU else 'Desativada — usando CPU'}")
 
         # Componentes (carregados uma vez)
         self.detector = YoloDetector()
@@ -80,6 +90,26 @@ class VideoPipeline:
 
         # Tracker é instanciado por vídeo (dentro de process)
         # porque mantém estado interno que não pode vazar entre execuções
+
+    # ------------------------------------------------------------------
+    # Propriedades thread-local: cada thread tem seu próprio logger e
+    # session_id, evitando race condition no singleton compartilhado.
+    # ------------------------------------------------------------------
+    @property
+    def logger(self):
+        return getattr(self._tl, 'logger', logging.getLogger(__name__))
+
+    @logger.setter
+    def logger(self, value):
+        self._tl.logger = value
+
+    @property
+    def session_id(self):
+        return getattr(self._tl, 'session_id', None)
+
+    @session_id.setter
+    def session_id(self, value):
+        self._tl.session_id = value
 
     def fast_scan(
         self,
@@ -449,7 +479,7 @@ class VideoPipeline:
             scale = frame_orig.shape[1] / frame.shape[1]
 
             # ---------------------------------------------------------
-            # 1. ZONA DE EXCLUSÃO ESPACIAL (Filtragem do Placar)
+            # 1. ZONA DE EXCLUSÃO ESPACIAL (Filtragem do Overlay de Transmissão)
             # ---------------------------------------------------------
             deteccoes_validas, bolas_yolo = self._get_valid_detections(frame, scale)
             valid_detections = [[d["box_yolo"], d["conf"], d["cls"]] for d in deteccoes_validas]
@@ -520,7 +550,7 @@ class VideoPipeline:
         debug: bool,
         debug_dir: str | None,
     ) -> None:
-        """Roda OCR em LOTE em todos os tracks do frame e atualiza o jersey_map."""
+        """Roda OCR em LOTE com otimizações de cache (votos) e filtragem geométrica."""
 
         target_color = None
         if target_signature and "_" in target_signature:
@@ -529,26 +559,40 @@ class VideoPipeline:
             except IndexError:
                 pass
 
+        # Calcula a altura na escala de processamento para a função geométrica
+        proc_h = frame_orig.shape[0] / scale if scale else frame_orig.shape[0]
+
         # 1. Prepara as listas do Lote
         crops_lote = []
         track_ids_lote = []
         bboxes_orig_lote = []
 
         for l, t, r, b, track_id in tracks:
+            # OTIMIZAÇÃO 1 (Do Commit): Pula tracks que já acumularam votos suficientes
+            existing = jersey_map.get(str(track_id))
+            if existing and existing.most_common(1)[0][1] >= MIN_OCR_VOTES:
+                continue
+
+            # OTIMIZAÇÃO 2 (Do Commit): Filtra bboxes panorâmicas geradas pelo tracker
+            w_track = r - l
+            h_track = b - t
+            if not self._is_valid_player_detection((l, t, w_track, h_track), proc_h):
+                continue
+
             bbox = (int(l * scale), int(t * scale), int(r * scale), int(b * scale))
             crop = self.jersey_reader._torso_crop(frame_orig, *bbox)
 
-            # Só adiciona no lote se o recorte for válido
-            if crop.shape[0] >= 10 and crop.shape[1] >= 10: 
+            # Só adiciona no lote se o recorte for válido (O commit ajustou MIN_CROP_H para 35)
+            if crop.shape[0] >= 35 and crop.shape[1] >= 10: 
                 crops_lote.append(crop)
                 track_ids_lote.append(track_id)
                 bboxes_orig_lote.append(bbox)
 
-        # Se não há recortes válidos, saímos
+        # Se não há recortes válidos após os filtros, saímos
         if not crops_lote:
             return
 
-        # 2. CHAMA O YOLO 1 ÚNICA VEZ PARA TODOS OS JOGADORES!
+        # 2. CHAMA O YOLO 1 ÚNICA VEZ PARA TODOS OS JOGADORES DO LOTE!
         target_num_pass = target_number if target_number is not None else -1
         resultados_lote = self.jersey_reader.read_batch(crops_lote, target_num_pass)
 
@@ -559,12 +603,15 @@ class VideoPipeline:
 
             for n in numbers:
                 if target_color and n == target_number:
-                    hex_color = self._extract_core_color(crop)
+                    hex_color = self._extract_core_color(crop) # Usa nossa média (cv2.mean)
                     if hex_color and self._color_distance(target_color, hex_color) < TRACKING_COLOR_TOLERANCE:
+                        # Jogador correto. Cadastra usando a Assinatura Oficial
                         jersey_map[str(track_id)][target_signature] += 5
                     else:
+                        # É do outro time. Cadastra com uma tag de lixo para não confundir
                         jersey_map[str(track_id)][f"LIXO_{n}_{hex_color}"] += 1
                 else:
+                    # Fluxo normal (fallback se não houver signature)
                     jersey_map[str(track_id)][n] += 1
 
             if debug and debug_dir:
@@ -614,17 +661,26 @@ class VideoPipeline:
         """
         self.logger.info("[2/4] Resolvendo Identidades dos Jogadores...")
 
+        # Descarta tracks com leituras muito inconsistentes (ex: torcedores na
+        # arquibancada que produzem números aleatórios a cada frame)
+        jersey_map_filtered = {
+            tid: counter
+            for tid, counter in jersey_map.items()
+            if counter and len(counter) <= MAX_DISTINCT_READINGS
+        }
+        discarded = len(jersey_map) - len(jersey_map_filtered)
+        if discarded:
+            self.logger.info(f"    [{discarded} tracks descartados por leituras inconsistentes]")
+
         resolved: dict[str, int | str] = {}
-        for tid, counter in jersey_map.items():
-            if not counter:
-                continue
+        for tid, counter in jersey_map_filtered.items():
             best_num, votes = counter.most_common(1)[0]
             if votes >= MIN_OCR_VOTES:
                 resolved[tid] = best_num
 
         if debug:
-            detailed = {tid: dict(c) for tid, c in jersey_map.items() if c}
-            self.logger.debug(f"  [MAP] Detalhado: {detailed}")
+            detailed = {tid: dict(c) for tid, c in jersey_map_filtered.items()}
+            self.logger.debug(f"  [MAP] Detalhado (filtrado): {detailed}")
             self.logger.debug(f"  [MAP] Resolvido: {resolved}")
 
         target_val = target_signature if target_signature else target_number
@@ -635,7 +691,7 @@ class VideoPipeline:
 
         # Fallback: aceita tracks cujo top-number é o alvo, mesmo sem votos suficientes
         if not target_track_ids:
-            for tid, counter in jersey_map.items():
+            for tid, counter in jersey_map_filtered.items():
                 if counter and counter.most_common(1)[0][0] == target_val:
                     target_track_ids.add(tid)
                     resolved[tid] = target_val
@@ -851,22 +907,19 @@ class VideoPipeline:
 
     def _get_valid_detections(self, frame: np.ndarray, scale: float) -> tuple[list, list]:
         """
-        [NOVO] Roda o YOLO, aplica a zona morta do placar e retorna detecções validadas.
+        Roda o YOLO e aplica a função aprimorada de validação de bboxes do commit recente.
         """
         detections, bolas_yolo = self.detector.detect(frame)
-        
-        altura_tela = frame.shape[0]
-        zona_morta_topo = altura_tela * 0.22  # Corta os 22% do topo 
+        frame_h = frame.shape[0]
         
         valid_detections = []
         for box, conf, cls in detections:
             x1, y1, w, h = box
             
-            # Aplica o filtro do placar
-            if y1 < zona_morta_topo:
+            # AQUI ESTÁ A INTEGRAÇÃO: Usamos o filtro do Lucas!
+            if not self._is_valid_player_detection((x1, y1, w, h), frame_h):
                 continue
                 
-            # Já converte as coordenadas para o tamanho original
             bbox_orig = (
                 int(x1 * scale),
                 int(y1 * scale),
@@ -905,6 +958,32 @@ class VideoPipeline:
             return self.color_extractor.get_dominant_color_hex(torso_crop)
             
         return self.color_extractor.get_dominant_color_hex(shoulders_crop)
+
+    def _is_valid_player_detection(self, bbox_xywh: tuple, frame_h: float) -> bool:
+        """
+        Retorna True se o bbox é geometricamente compatível com um jogador.
+
+        Rejeita:
+        - Aspect ratio horizontal demais (bboxes panorâmicas do tracker ou overlays)
+        - Torso crop que intersecta dead zones de overlay de transmissão (topo/base)
+        """
+        x1, y1, w, h = bbox_xywh
+
+        if h > 0 and (w / h) > MAX_PLAYER_ASPECT_RATIO:
+            return False
+
+        torso_y1 = y1 + h * TORSO_Y_START
+        torso_y2 = y1 + h * TORSO_Y_END
+
+        dead_top    = frame_h * SCOREBOARD_ZONE_TOP
+        dead_bottom = frame_h * (1 - SCOREBOARD_ZONE_BOTTOM)
+
+        if torso_y1 < dead_top:
+            return False
+        if torso_y2 > dead_bottom:
+            return False
+
+        return True
 
     def _resize_frame(self, frame: np.ndarray) -> np.ndarray:
         """Redimensiona o frame para largura máxima de PROCESS_WIDTH, registando a alteração."""
