@@ -62,8 +62,7 @@ class YoloDetector(BaseYoloDetector):
         self.min_player_h = min_player_h
 
         self.player_classes, self.ball_class = self._discover_class_ids()
-        self.yolo_classes = self.player_classes + [self.ball_class]
-        
+        self.yolo_classes = self.player_classes #+ [self.ball_class] # descomentar para usar o YoloDetector também para a bola
         self._log_init()
 
     def detect(self, frame: np.ndarray) -> tuple[list, list]:

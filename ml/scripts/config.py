@@ -83,7 +83,7 @@ MIN_OCR_VOTES = 3
 
 # Máximo de números distintos que um track pode ter lido e ainda ser considerado
 # Tracks com muita variação (ex: torcedores) são descartados antes da resolução
-MAX_DISTINCT_READINGS = 4
+MAX_DISTINCT_READINGS = 9
 
 
 # ==========================================================
@@ -139,22 +139,22 @@ KINEMATIC_STD_MULTIPLIER = 2.5
 KINEMATIC_COOLDOWN_SECONDS = 1.5
 
 # Tolerâncias de Distancia de cor (Euclidiana no espaço LAB)
-FAST_SCAN_COLOR_TOLERANCE = 60  # Muito rigoroso para evitar misturar times na UI
-TRACKING_COLOR_TOLERANCE = 75   # Um pouco mais flexível para manter o tracking ativo na sombra
+FAST_SCAN_COLOR_TOLERANCE = 35  # Muito rigoroso para evitar misturar times na UI
+TRACKING_COLOR_TOLERANCE = 65   # Um pouco mais flexível para manter o tracking ativo na sombra
 
 
 # ==========================================================
 # FILTRAGEM DE OVERLAY DE TRANSMISSÃO E BBOXES INVÁLIDAS
 # ==========================================================
 # Dead zone no topo do frame (overlay de placar superior)
-SCOREBOARD_ZONE_TOP = 0.18
+SCOREBOARD_ZONE_TOP = 0.10
 
 # Dead zone na base do frame (overlay de placar inferior)
 SCOREBOARD_ZONE_BOTTOM = 0.10
 
 # Aspect ratio máximo (largura/altura) — bboxes mais largos são descartados
 # Filtra bboxes panorâmicas geradas pelo tracker e overlays horizontais
-MAX_PLAYER_ASPECT_RATIO = 1.5
+MAX_PLAYER_ASPECT_RATIO = 2.5
 
 
 # ==========================================================

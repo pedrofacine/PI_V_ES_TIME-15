@@ -937,27 +937,32 @@ class VideoPipeline:
         return valid_detections, bolas_yolo
 
     def _extract_core_color(self, torso_crop: np.ndarray) -> str | None:
-        """Extrai a cor da parte superior do torso (ombros/peito) para evitar o número impresso e o fundo."""
+        """Extrai a COR MÉDIA da parte superior do torso (ombros/peito). 
+        Evita o efeito flip-flop de camisas divididas."""
         if torso_crop.size == 0:
             return None
         
         h, w = torso_crop.shape[:2]
         
         # Foca apenas nos 40% superiores da imagem (peito para cima)
-        # E corta 15% das laterais para não pegar a grama/quadra atrás do braço
         margem_lateral = int(w * 0.15)
         altura_ombros = int(h * 0.40)
         
         shoulders_crop = torso_crop[
-            0 : altura_ombros,
-            margem_lateral : w - margem_lateral
+            0 : max(1, altura_ombros),
+            margem_lateral : max(margem_lateral + 1, w - margem_lateral)
         ]
         
-        # Fallback de segurança: se a imagem ficou muito pequena após o recorte, usa o torso inteiro
+        # Fallback de segurança
         if shoulders_crop.size == 0:
-            return self.color_extractor.get_dominant_color_hex(torso_crop)
+            shoulders_crop = torso_crop
             
-        return self.color_extractor.get_dominant_color_hex(shoulders_crop)
+        # O PULO DO GATO: Tira a média exata de todos os pixels para neutralizar estampas/dobras
+        mean_bgr = cv2.mean(shoulders_crop)[:3]
+        
+        # Converte o BGR médio para código Hexadecimal
+        hex_color = '#%02x%02x%02x' % (int(mean_bgr[2]), int(mean_bgr[1]), int(mean_bgr[0]))
+        return hex_color
 
     def _is_valid_player_detection(self, bbox_xywh: tuple, frame_h: float) -> bool:
         """
