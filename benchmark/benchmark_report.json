@@ -1,0 +1,103 @@
+{
+  "video": "0966604f-e9ec-4600-943b-9847e731bc3b_BIQUEIRA x REAL RECANTO - Copa Martins Neto 2023.mp4",
+  "target_number": 9,
+  "timestamp": "2026-05-26T21:14:26.581338",
+  "events": {
+    "ball_touches": 11,
+    "kinematic_anomalies": 0
+  },
+  "performance": {
+    "total_clips": 4,
+    "elapsed_seconds": 3863.75,
+    "throughput_fps": null
+  },
+  "clips": [
+    {
+      "path": "E:\\PI-15\\PI_V_ES_TIME-15\\benchmark\\benchmark_output\\jogador_9_clipe_1_99s_a_117s.mp4",
+      "start_ts": 99.18241666666667,
+      "end_ts": 117.6175,
+      "duration_s": 18.44,
+      "events": [
+        {
+          "type": "toque",
+          "frame": 6310,
+          "time": 105.27183333333333
+        },
+        {
+          "type": "toque",
+          "frame": 6468,
+          "time": 107.90780000000001
+        },
+        {
+          "type": "toque",
+          "frame": 6550,
+          "time": 109.27583333333334
+        }
+      ]
+    },
+    {
+      "path": "E:\\PI-15\\PI_V_ES_TIME-15\\benchmark\\benchmark_output\\jogador_9_clipe_2_187s_a_201s.mp4",
+      "start_ts": 187.57071666666667,
+      "end_ts": 201.50130000000001,
+      "duration_s": 13.93,
+      "events": [
+        {
+          "type": "toque",
+          "frame": 11608,
+          "time": 193.66013333333333
+        }
+      ]
+    },
+    {
+      "path": "E:\\PI-15\\PI_V_ES_TIME-15\\benchmark\\benchmark_output\\jogador_9_clipe_3_344s_a_365s.mp4",
+      "start_ts": 344.4607833333333,
+      "end_ts": 365.6653,
+      "duration_s": 21.2,
+      "events": [
+        {
+          "type": "toque",
+          "frame": 21044,
+          "time": 351.0840666666667
+        },
+        {
+          "type": "toque",
+          "frame": 21288,
+          "time": 355.1548
+        },
+        {
+          "type": "toque",
+          "frame": 21516,
+          "time": 358.9586
+        }
+      ]
+    },
+    {
+      "path": "E:\\PI-15\\PI_V_ES_TIME-15\\benchmark\\benchmark_output\\jogador_9_clipe_4_369s_a_390s.mp4",
+      "start_ts": 369.98628333333335,
+      "end_ts": 390.7236666666667,
+      "duration_s": 20.74,
+      "events": [
+        {
+          "type": "toque",
+          "frame": 22544,
+          "time": 376.10906666666665
+        },
+        {
+          "type": "toque",
+          "frame": 22610,
+          "time": 377.2101666666667
+        },
+        {
+          "type": "toque",
+          "frame": 22670,
+          "time": 378.21116666666666
+        },
+        {
+          "type": "toque",
+          "frame": 22730,
+          "time": 379.2121666666667
+        }
+      ]
+    }
+  ]
+}
