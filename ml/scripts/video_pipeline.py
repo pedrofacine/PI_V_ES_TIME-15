@@ -203,9 +203,14 @@ class VideoPipeline:
                     if not numbers:
                         continue
                         
-                    for num in numbers:
+                    # [CORREÇÃO] Desempacota a tupla retornada pelo novo JerseyReader
+                    for num, conf in numbers:
+                        
+                        # Ignora leituras de baixíssima confiança no Fast Scan para evitar spam na UI
+                        if conf < 0.40:
+                            continue
+                            
                         # Extraindo cor apenas do miolo para evitar piso/fundo
-                        # (Repare que usamos o 'crop' já feito, economizando processamento!)
                         hex_color = self._extract_core_color(crop)
                         
                         if not hex_color:
@@ -265,7 +270,7 @@ class VideoPipeline:
                                 "image": f"/uploads/clips/{os.path.basename(output_dir)}/{img_filename}"
                             }
                             candidates_found[signature] = cand_dict
-                            self.logger.info(f"[FAST SCAN] Novo candidato encontrado e enviado à UI: {num}")
+                            self.logger.info(f"[FAST SCAN] Novo candidato encontrado e enviado à UI: {num} (conf: {conf:.2f})")
                             
                             if on_candidate_found:
                                 on_candidate_found(cand_dict)
@@ -438,7 +443,7 @@ class VideoPipeline:
         self.logger.info(f"[video] Terminando no frame {end_frame}")
 
         video_metadata: dict[int, dict] = {}
-        jersey_map: dict[str, Counter] = defaultdict(Counter)
+        jersey_map: dict[str, dict] = defaultdict(lambda: defaultdict(float))
         max_frame = start_frame - 1
 
         fps = self._get_safe_fps(cap)
@@ -570,7 +575,7 @@ class VideoPipeline:
         for l, t, r, b, track_id in tracks:
             # OTIMIZAÇÃO 1 (Do Commit): Pula tracks que já acumularam votos suficientes
             existing = jersey_map.get(str(track_id))
-            if existing and existing.most_common(1)[0][1] >= MIN_OCR_VOTES:
+            if existing and max(existing.values(), default=0) >= MIN_OCR_VOTES:
                 continue
 
             # OTIMIZAÇÃO 2 (Do Commit): Filtra bboxes panorâmicas geradas pelo tracker
@@ -601,20 +606,22 @@ class VideoPipeline:
             if not numbers:
                 continue
 
-            for n in numbers:
+            for n, conf in numbers: 
                 if target_color and n == target_number:
-                    hex_color = self._extract_core_color(crop) # Usa nossa média (cv2.mean)
+                    hex_color = self._extract_core_color(crop)
                     if hex_color and self._color_distance(target_color, hex_color) < TRACKING_COLOR_TOLERANCE:
-                        # Jogador correto. Cadastra usando a Assinatura Oficial
-                        jersey_map[str(track_id)][target_signature] += 5
+                        # Jogador correto. Damos um multiplicador de peso na confiança.
+                        # Exemplo: Uma leitura de 0.8 vale 1.6 pontos na assinatura oficial.
+                        jersey_map[str(track_id)][target_signature] += (conf * 2.0)
                     else:
-                        # É do outro time. Cadastra com uma tag de lixo para não confundir
-                        jersey_map[str(track_id)][f"LIXO_{n}_{hex_color}"] += 1
+                        # É do outro time. Acumula lixo com peso real.
+                        jersey_map[str(track_id)][f"LIXO_{n}_{hex_color}"] += conf
                 else:
-                    # Fluxo normal (fallback se não houver signature)
-                    jersey_map[str(track_id)][n] += 1
+                    # Fluxo normal (Soft Voting: em vez de += 1, soma a confiança)
+                    jersey_map[str(track_id)][n] += conf
 
             if debug and debug_dir:
+                # Nota: 'numbers' agora será impresso no log como uma lista de tuplas. Ex: [(10, 0.85)]
                 self._save_debug_crop(frame_orig, bbox, frame_idx, track_id, numbers, debug_dir)
                 self.logger.debug(f"  [MAP] frame={frame_idx} track={track_id} leu={numbers}")
 
@@ -673,12 +680,17 @@ class VideoPipeline:
             self.logger.info(f"    [{discarded} tracks descartados por leituras inconsistentes]")
 
         resolved: dict[str, int | str] = {}
-        for tid, counter in jersey_map_filtered.items():
-            best_num, votes = counter.most_common(1)[0]
+
+        for tid, conf_dict in jersey_map_filtered.items():
+            # [NOVO] Extrai a chave com maior valor (maior soma de confiança)
+            best_num = max(conf_dict, key=conf_dict.get)
+            votes = conf_dict[best_num]
+            
             if votes >= MIN_OCR_VOTES:
                 resolved[tid] = best_num
 
         if debug:
+            # Formatação simplificada para debug no log
             detailed = {tid: dict(c) for tid, c in jersey_map_filtered.items()}
             self.logger.debug(f"  [MAP] Detalhado (filtrado): {detailed}")
             self.logger.debug(f"  [MAP] Resolvido: {resolved}")
@@ -689,12 +701,15 @@ class VideoPipeline:
             tid for tid, num in resolved.items() if num == target_val
         }
 
-        # Fallback: aceita tracks cujo top-number é o alvo, mesmo sem votos suficientes
+        # Fallback: aceita tracks cujo topo é o alvo, mesmo sem votos suficientes (confiança acumulada baixa)
         if not target_track_ids:
-            for tid, counter in jersey_map_filtered.items():
-                if counter and counter.most_common(1)[0][0] == target_val:
-                    target_track_ids.add(tid)
-                    resolved[tid] = target_val
+            for tid, conf_dict in jersey_map_filtered.items():
+                if conf_dict:
+                    # [NOVO] Pega o top number usando max()
+                    best_num = max(conf_dict, key=conf_dict.get)
+                    if best_num == target_val:
+                        target_track_ids.add(tid)
+                        resolved[tid] = target_val
 
         if not target_track_ids:
             raise ValueError(f"Jogador alvo não encontrado. Alvo: {target_val}")
@@ -832,6 +847,7 @@ class VideoPipeline:
                     target_number=target_number,
                     output_dir=output_dir,
                     events=events,
+                    video_path=video_path
                 )
                 if clip_dict:
                     results.append(clip_dict)
@@ -854,6 +870,7 @@ class VideoPipeline:
         target_number: int,
         output_dir: str,
         events: list[dict],
+        video_path: str
     ) -> dict | None:
         """Extrai e salva um único clipe. Retorna None em caso de falha."""
         padded_start = max(0, start_f - padding_frames)
@@ -892,7 +909,7 @@ class VideoPipeline:
 
         # Escreve o arquivo
         h, w = clip_frames[0].shape[:2]
-        self.clip_writer.write(clip_frames, clip_path, fps, (w, h))
+        self.clip_writer.write(clip_frames, clip_path, fps, (w, h), source_video=video_path, start_sec=start_s)
 
         return {
             "path": clip_path,
@@ -1022,7 +1039,7 @@ class VideoPipeline:
         bbox: tuple[int, int, int, int],
         frame_idx: int,
         track_id,
-        numbers: list[int],
+        numbers: list[tuple[int, float]],
         debug_dir: str,
     ) -> None:
         """Salva crop do torso com nome indicativo do que foi lido."""
@@ -1036,7 +1053,8 @@ class VideoPipeline:
             max(0, y1 + int(h * 0.15)):min(fh, y1 + int(h * 0.55)),
             max(0, x1):min(fw, x2),
         ]
-        nums_str = "_".join(map(str, numbers))
+        nums_str = "_".join(f"{n}-c{int(conf*100)}" for n, conf in numbers)
+        
         filename = f"ocr_f{frame_idx:05d}_t{track_id}_leu_{nums_str}.png"
         cv2.imwrite(os.path.join(debug_dir, filename), crop)
 

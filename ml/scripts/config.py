@@ -63,23 +63,23 @@ OCR_MIN_CONFIDENCE = 0.40
 
 # Região vertical do bbox que contém o torso (% da altura total)
 # Exemplo: (0.15, 0.55) = do 15% ao 55% da altura do bbox
-TORSO_Y_START = 0.15
-TORSO_Y_END = 0.55
+TORSO_Y_START = 0.10
+TORSO_Y_END = 0.65
 
 # Fator de upscale do crop antes do OCR (maior = melhor, mas mais lento)
 OCR_UPSCALE_FACTOR = 3
 
 # Tamanho mínimo do crop para rodar OCR (abaixo disso, descartamos)
 # 35px filtra crops de torcedores parcialmente visíveis na arquibancada
-MIN_CROP_H = 35
-MIN_CROP_W = 10
+MIN_CROP_H = 15
+MIN_CROP_W = 8
 
 
 # ==========================================================
 # RESOLUÇÃO DE IDs DOS JOGADORES
 # ==========================================================
 # Número mínimo de votos (leituras consistentes) para "confirmar" um número
-MIN_OCR_VOTES = 3
+MIN_OCR_VOTES = 3.5
 
 # Máximo de números distintos que um track pode ter lido e ainda ser considerado
 # Tracks com muita variação (ex: torcedores) são descartados antes da resolução

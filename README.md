@@ -6,18 +6,27 @@
 
 ## Sumário
 
-- [Sobre o projeto](#sobre-o-projeto)
-- [Tecnologias](#tecnologias)
-- [Arquitetura](#arquitetura)
-- [Funcionalidades](#funcionalidades)
-- [Pré-requisitos](#pré-requisitos)
-- [Instalação e execução](#instalação-e-execução)
-  - [Backend](#backend)
-  - [Frontend](#frontend)
-- [Variáveis de ambiente](#variáveis-de-ambiente)
-- [Estrutura de pastas](#estrutura-de-pastas)
-- [Fluxo da aplicação](#fluxo-da-aplicação)
-- [Rotas da API](#rotas-da-api)
+- [SmartScout 🎯](#smartscout-)
+  - [Sumário](#sumário)
+  - [Sobre o projeto](#sobre-o-projeto)
+  - [Tecnologias](#tecnologias)
+    - [Backend](#backend)
+    - [Frontend](#frontend)
+  - [Arquitetura](#arquitetura)
+  - [Funcionalidades](#funcionalidades)
+  - [Pré-requisitos](#pré-requisitos)
+  - [Instalação e execução](#instalação-e-execução)
+    - [Backend](#backend-1)
+    - [Frontend](#frontend-1)
+  - [Variáveis de ambiente](#variáveis-de-ambiente)
+    - [Backend — `backend/.env`](#backend--backendenv)
+    - [Frontend — `frontend/.env`](#frontend--frontendenv)
+  - [Estrutura de pastas](#estrutura-de-pastas)
+  - [Fluxo da aplicação](#fluxo-da-aplicação)
+  - [Rotas da API](#rotas-da-api)
+    - [Autenticação — `/api/v1/auth`](#autenticação--apiv1auth)
+    - [Jobs — `/api/v1/jobs`](#jobs--apiv1jobs)
+    - [Uploads — `/api/v1/uploads`](#uploads--apiv1uploads)
 
 ---
 
@@ -47,7 +56,6 @@ Com o SmartScout, o processo é totalmente automatizado:
 | Ultralytics (YOLO) | 8.0+ | Detecção de jogadores |
 | DeepSort | 1.3+ | Rastreamento de jogadores |
 | OpenCV | 4.8+ | Processamento de vídeo |
-| EasyOCR | 1.7+ | Leitura de números de camisa |
 | Supervision | 0.18+ | Utilitários de visão computacional |
 | Passlib + bcrypt | — | Hash de senhas |
 | Python-Jose | — | Autenticação JWT |

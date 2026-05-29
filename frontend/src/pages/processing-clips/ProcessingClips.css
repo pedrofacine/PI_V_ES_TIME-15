@@ -95,8 +95,9 @@
  
 .progress-bar-fill {
   position: absolute;
-  top: 0; bottom: 0; left: 0;
+  top: 0; bottom: 0;
   height: 100%;
+  width: 0%;
   background: linear-gradient(90deg, #2872A1, #5BADDA);
   border-radius: 4px;
   transition: width 0.5s ease-in-out;

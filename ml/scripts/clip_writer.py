@@ -37,31 +37,46 @@ class ClipWriter:
         out_path: str,
         fps: float,
         size: tuple[int, int],
+        source_video: str,  # NOVO: Necessário para extrair a trilha de áudio
+        start_sec: float,   # NOVO: Necessário para sincronizar o corte do áudio
     ) -> None:
         """
-        Salva uma lista de frames como arquivo MP4.
+        Salva uma lista de frames como arquivo MP4, injetando o áudio original.
 
         Args:
             frames: Lista de numpy arrays (BGR) representando os frames do clipe.
             out_path: Caminho completo do arquivo .mp4 de saída.
             fps: Taxa de quadros do clipe.
-            size: Tupla (largura, altura) do clipe. Frames fora desse tamanho
-                  serão redimensionados.
+            size: Tupla (largura, altura) do clipe.
+            source_video: Caminho completo do vídeo original (raw).
+            start_sec: Tempo de início do clipe no vídeo original (em segundos).
         """
         if not frames:
             raise ValueError("Lista de frames vazia, nada a gravar.")
 
+        # 1. Calculamos a duração exata do clipe para instruir o corte do FFmpeg
+        duration = len(frames) / fps
+
         tmp_path = out_path.replace(".mp4", "_tmp.mp4")
 
-        # Etapa 1: OpenCV grava MP4 temporário
+        # Etapa 1: OpenCV grava MP4 temporário (gera a trilha de vídeo crua)
         self._write_with_opencv(frames, tmp_path, fps, size)
 
-        # Etapa 2: ffmpeg re-encoda para H.264
+        # Etapa 2: FFmpeg encoda o vídeo para H.264 (web) e multiplexa o áudio
         try:
-            self._reencode_with_ffmpeg(tmp_path, out_path)
+            self._reencode_with_ffmpeg(
+                input_tmp_path=tmp_path, 
+                output_path=out_path, 
+                source_video=source_video, 
+                start_sec=start_sec, 
+                duration=duration
+            )
             os.remove(tmp_path)
         except Exception as e:
-            print(f"[warn] ffmpeg re-encode falhou ({e}), usando mp4v original.")
+            # Fallback: Se o FFmpeg falhar (ex: arquivo de áudio corrompido), 
+            # devolvemos o arquivo mudo do OpenCV para não quebrar a pipeline.
+            print(f"[warn] ffmpeg re-encode/audio multiplexing falhou ({e}), usando mp4v original sem áudio.")
+            import shutil
             shutil.move(tmp_path, out_path)
 
     def _write_with_opencv(
@@ -84,19 +99,27 @@ class ClipWriter:
 
         out.release()
 
-    def _reencode_with_ffmpeg(self, input_path: str, output_path: str) -> None:
-        """Re-encoda o arquivo com ffmpeg para H.264 + faststart."""
+    def _reencode_with_ffmpeg(
+        self, input_tmp_path: str, output_path: str, source_video: str, start_sec: float, duration: float
+    ) -> None:
+        """Injeta a faixa de áudio do arquivo original em sync com o vídeo temporário."""
         subprocess.run(
             [
                 self._ffmpeg_bin,
                 "-y",
-                "-i", input_path,
-                "-c:v", "libx264",
+                "-i", input_tmp_path,             # Input 0: Vídeo das arrays OpenCV
+                "-ss", str(start_sec),            # Ponto de início para cortar o áudio
+                "-t", str(duration),              # Duração do clipe
+                "-i", source_video,               # Input 1: Vídeo original (para pegar áudio)
+                "-c:v", "libx264",                # Compressão H264 pro Browser
                 "-preset", self.preset,
                 "-crf", str(self.crf),
+                "-c:a", "aac",                    # Encoding de áudio suportado web
+                "-b:a", "128k",
+                "-map", "0:v:0",                  # Usa o track de VÍDEO do input 0 (OpenCV)
+                "-map", "1:a:0",                  # Usa o track de ÁUDIO do input 1 (Source)
                 "-pix_fmt", "yuv420p",
                 "-movflags", "+faststart",
-                "-an",  # sem áudio
                 output_path,
             ],
             check=True,

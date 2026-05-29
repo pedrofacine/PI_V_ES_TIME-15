@@ -46,7 +46,7 @@ class JerseyReader:
         frame: np.ndarray,
         bbox: tuple[int, int, int, int],
         target_number: int,
-    ) -> list[int]:
+    ) -> list[tuple[int, float]]:
         
         x1, y1, x2, y2 = bbox
         
@@ -59,7 +59,7 @@ class JerseyReader:
 
         return self._read_numbers(crop, target_number)
     
-    def read_batch(self, crops: list[np.ndarray], target_number: int) -> list[list[int]]:
+    def read_batch(self, crops: list[np.ndarray], target_number: int) -> list[list[tuple[int, float]]]:
         """
         [NOVO] Otimização: Processa múltiplos recortes de uma só vez na GPU!
         Retorna uma lista contendo as leituras de cada recorte.
@@ -81,7 +81,11 @@ class JerseyReader:
             for box in boxes:
                 x_min = float(box.xyxy[0][0])
                 cls_id = int(box.cls[0])
-                digits.append((x_min, cls_id))
+                conf = float(box.conf[0]) # extraindo confiança da detecção
+
+                if cls_id == 8 and conf < 0.75: # AJUSTE TEMPORARIO: Treinamento foi desbalanceado com o número 8, portanto exigimos mais confiança
+                    continue
+                digits.append((x_min, cls_id, conf))
 
             if not digits:
                 batch_numbers.append([])
@@ -92,10 +96,13 @@ class JerseyReader:
             number_str = "".join(str(d[1]) for d in digits)
             value = int(number_str)
 
+            avg_conf = sum(d[2] for d in digits) / len(digits)
+
             if value == 0 and target_number != 0:
                 batch_numbers.append([])
             else:
-                batch_numbers.append([value])
+                # Retorna uma TUPLA em vez de um inteiro isolado
+                batch_numbers.append([(value, avg_conf)])
 
         return batch_numbers
 
@@ -117,7 +124,7 @@ class JerseyReader:
             max(0, x1):min(fw, x2),
         ]
 
-    def _read_numbers(self, crop: np.ndarray, target_number: int) -> list[int]:
+    def _read_numbers(self, crop: np.ndarray, target_number: int) -> list[tuple[int, float]]:
         """
         Executa o YOLO no recorte e ordena os dígitos da esquerda para a direita.
         """
@@ -135,11 +142,14 @@ class JerseyReader:
         for box in boxes:
             # Pega a coordenada X inicial da caixinha do número (para sabermos quem vem antes)
             x_min = float(box.xyxy[0][0]) 
-            
             # Pega o ID da classe (Como treinamos de 0 a 9, o ID é o próprio dígito)
             cls_id = int(box.cls[0])      
+            conf = float(box.conf[0]) # extraindo confiança da detecção
+
+            if cls_id == 8 and conf < 0.75: # AJUSTE TEMPORARIO: Treinamento foi desbalanceado com o número 8, portanto exigimos mais confiança
+                continue
             
-            digits.append((x_min, cls_id))
+            digits.append((x_min, cls_id, conf))
 
         if not digits:
             return []
@@ -151,8 +161,11 @@ class JerseyReader:
         number_str = "".join(str(d[1]) for d in digits)
         value = int(number_str)
 
-        # 6. Mantemos a sua heurística de segurança para falsos positivos do 0
+        # [NOVO] CÁLCULO DA CONFIANÇA MÉDIA
+        avg_conf = sum(d[2] for d in digits) / len(digits)
+
         if value == 0 and target_number != 0:
             return []
 
-        return [value]
+        # [NOVO] Retorna a TUPLA
+        return [(value, avg_conf)]

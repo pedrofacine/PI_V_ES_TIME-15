@@ -46,7 +46,7 @@ def on_startup():
     Path("uploads/videos").mkdir(parents=True, exist_ok=True)
     Path("uploads/clips").mkdir(parents=True, exist_ok=True)
 
-    print("[SISTEMA] Iniciando aquecimento da IA (carregando PyTorch, YOLO e EasyOCR)...")
+    print("[SISTEMA] Iniciando aquecimento da IA (carregando modelos)...")
     _get_pipeline()
     print("[SISTEMA] IA carregada na memória e pronta para uso!")
 
