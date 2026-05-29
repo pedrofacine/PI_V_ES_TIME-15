@@ -62,7 +62,7 @@ class JerseyReader:
     def read_batch(self, crops: list[np.ndarray], target_number: int) -> list[list[tuple[int, float]]]:
         """
         [NOVO] Otimização: Processa múltiplos recortes de uma só vez na GPU!
-        Retorna uma lista contendo as leituras de cada recorte.
+        Retorna uma lista contendo as leituras de cada recorte em tuplas: [(numero, conf_media)].
         """
         if not crops:
             return []
@@ -81,10 +81,11 @@ class JerseyReader:
             for box in boxes:
                 x_min = float(box.xyxy[0][0])
                 cls_id = int(box.cls[0])
-                conf = float(box.conf[0]) # extraindo confiança da detecção
+                conf = float(box.conf[0]) # <--- REINSERINDO A EXTRAÇÃO DA CONFIANÇA
 
-                if cls_id == 8 and conf < 0.75: # AJUSTE TEMPORARIO: Treinamento foi desbalanceado com o número 8, portanto exigimos mais confiança
+                if cls_id == 8 and conf < 0.75:
                     continue
+                
                 digits.append((x_min, cls_id, conf))
 
             if not digits:
@@ -96,13 +97,13 @@ class JerseyReader:
             number_str = "".join(str(d[1]) for d in digits)
             value = int(number_str)
 
+            # <--- REINSERINDO O CÁLCULO DA MÉDIA
             avg_conf = sum(d[2] for d in digits) / len(digits)
 
             if value == 0 and target_number != 0:
                 batch_numbers.append([])
             else:
-                # Retorna uma TUPLA em vez de um inteiro isolado
-                batch_numbers.append([(value, avg_conf)])
+                batch_numbers.append([(value, avg_conf)]) # <--- RETORNO EM TUPLA
 
         return batch_numbers
 
@@ -128,8 +129,6 @@ class JerseyReader:
         """
         Executa o YOLO no recorte e ordena os dígitos da esquerda para a direita.
         """
-        # 2. Inferência direta! Sem grayscale, sem upscale, o YOLO cuida disso.
-        # Passamos conf e half para otimizar velocidade se estiver usando GPU.
         results = self.model(crop, verbose=False, conf=self.min_confidence, half=self.use_gpu)
 
         boxes = results[0].boxes
@@ -140,32 +139,30 @@ class JerseyReader:
         
         # 3. Extrai cada dígito detectado
         for box in boxes:
-            # Pega a coordenada X inicial da caixinha do número (para sabermos quem vem antes)
             x_min = float(box.xyxy[0][0]) 
-            # Pega o ID da classe (Como treinamos de 0 a 9, o ID é o próprio dígito)
             cls_id = int(box.cls[0])      
-            conf = float(box.conf[0]) # extraindo confiança da detecção
-
-            if cls_id == 8 and conf < 0.75: # AJUSTE TEMPORARIO: Treinamento foi desbalanceado com o número 8, portanto exigimos mais confiança
-                continue
+            conf = float(box.conf[0]) # <--- EXTRAINDO CONFIANÇA
             
+            if cls_id == 8 and conf < 0.75:
+                continue
+                
             digits.append((x_min, cls_id, conf))
 
         if not digits:
             return []
 
-        # 4. A MÁGICA: Ordena da esquerda para a direita com base no X
+        # 4. Ordena da esquerda para a direita com base no X
         digits.sort(key=lambda d: d[0])
 
-        # 5. Concatena (Ex: Lê "1" e "0" -> Transforma na string "10" -> Converte para Int 10)
+        # 5. Concatena 
         number_str = "".join(str(d[1]) for d in digits)
         value = int(number_str)
 
-        # [NOVO] CÁLCULO DA CONFIANÇA MÉDIA
+        # <--- CÁLCULO DA MÉDIA
         avg_conf = sum(d[2] for d in digits) / len(digits)
 
+        # 6. Heurística de segurança
         if value == 0 and target_number != 0:
             return []
 
-        # [NOVO] Retorna a TUPLA
-        return [(value, avg_conf)]
+        return [(value, avg_conf)] # <--- RETORNO EM TUPLA
