@@ -701,18 +701,36 @@ class VideoPipeline:
             tid for tid, num in resolved.items() if num == target_val
         }
 
-        # Fallback: aceita tracks cujo topo é o alvo, mesmo sem votos suficientes (confiança acumulada baixa)
+        # --- CORREÇÃO: RESGATE INTELIGENTE COM PROTEÇÃO DE PROPORÇÃO (RATIO) ---
+        if not target_track_ids:
+            for tid, conf_dict in jersey_map_filtered.items():
+                target_votes = conf_dict.get(target_val, 0)
+                total_votes = sum(conf_dict.values())
+                
+                # Exigimos no mínimo 1.5 pontos (peso absoluto mínimo)
+                if target_votes >= 1.5 and total_votes > 0:
+                    # Exigimos que o alvo represente pelo menos 25% de tudo que foi lido neste track (peso relativo)
+                    ratio = target_votes / total_votes
+                    if ratio >= 0.25:
+                        target_track_ids.add(tid)
+                        resolved[tid] = target_val
+                        self.logger.warning(
+                            f"    [!] Resgate Ativado: Track {tid} teve {target_votes:.2f} pts "
+                            f"({ratio*100:.1f}% de dominância) para o alvo e foi resgatado."
+                        )
+
+        # Fallback 2: O antigo (se não achou nada acima de 1.5 e 25%, pega quem liderou a track de forma absoluta)
         if not target_track_ids:
             for tid, conf_dict in jersey_map_filtered.items():
                 if conf_dict:
-                    # [NOVO] Pega o top number usando max()
                     best_num = max(conf_dict, key=conf_dict.get)
                     if best_num == target_val:
                         target_track_ids.add(tid)
                         resolved[tid] = target_val
 
         if not target_track_ids:
-            raise ValueError(f"Jogador alvo não encontrado. Alvo: {target_val}")
+            self.logger.warning(f"    [!] Jogador alvo {target_val} não foi encontrado com firmeza no rastreamento. Abortando clipes sem crash.")
+            return set() # Retorna vazio. A pipeline não quebra o backend e devolve 0 clipes.
 
         self.logger.info(f"    ✓ Jogador #{target_val} vinculado aos IDs: {target_track_ids}")
         return target_track_ids
