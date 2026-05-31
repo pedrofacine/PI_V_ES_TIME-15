@@ -75,22 +75,7 @@ Com o SmartScout, o processo é totalmente automatizado:
 ---
 
 ## Arquitetura
-
-```
-┌─────────────────────┐         ┌──────────────────────────┐
-│      Frontend       │  HTTP   │         Backend           │
-│   React + Vite      │ ──────► │   FastAPI + PostgreSQL    │
-│   localhost:5173    │         │    localhost:8000          │
-└─────────────────────┘         └──────────────────────────┘
-                                           │
-                                           │ processa
-                                           ▼
-                                ┌──────────────────────────┐
-                                │    Pipeline de IA         │
-                                │  YOLO → DeepSort → OCR   │
-                                │  → Extração de clipes     │
-                                └──────────────────────────┘
-```
+<img width="4695" height="1997" alt="Diagrama de Arquitetura" src="https://github.com/user-attachments/assets/1552ba4a-bf89-48c4-aba0-290b3e5beba8" />
 
 O frontend se comunica com o backend via REST e **Server-Sent Events (SSE)** para acompanhar o progresso do processamento em tempo real.
 
