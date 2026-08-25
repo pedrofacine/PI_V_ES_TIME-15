@@ -127,20 +127,40 @@ source venv/bin/activate
 
 **3. Instale as dependências:**
 ```bash
-pip install -r requirements.txt
+# API (sem torch/CUDA)
+pip install -r requirements/api.txt
+
+# Worker de visão computacional (com torch/YOLO) — opcional, roda separado
+# pip install -r requirements/worker.txt
 ```
+
+> As dependências foram divididas em `requirements/base.txt` (comuns), `requirements/api.txt`
+> (servidor) e `requirements/worker.txt` (ML). A imagem da API não baixa mais o torch.
 
 **4. Configure as variáveis de ambiente:**
 
 Crie um arquivo `.env` na pasta `backend/` com o conteúdo descrito na seção [Variáveis de ambiente](#variáveis-de-ambiente).
 
-**5. Inicie o servidor:**
+**5. Aplique as migrações do banco:**
+```bash
+# a partir da pasta backend/
+alembic upgrade head
+```
+
+> O schema é gerido por **Alembic** (migrações versionadas) — o `create_all` no startup foi
+> removido. Toda alteração de modelo agora exige uma migração:
+> `alembic revision --autogenerate -m "descricao"` e depois `alembic upgrade head`.
+
+**6. Inicie o servidor:**
 ```bash
 python -m uvicorn app.main:app --reload
 ```
 
 O backend estará disponível em `http://localhost:8000`.
 A documentação interativa da API estará em `http://localhost:8000/docs`.
+
+> **Com Docker (alternativa):** na raiz do projeto, `docker compose up` sobe `redis`, `api`
+> e `web` de uma vez. O Postgres continua externo (Supabase, via `DATABASE_URL`).
 
 ---
 
@@ -202,27 +222,31 @@ VITE_API_PATH=http://localhost:8000/api/v1
 PI_V_ES_TIME-15/
 ├── backend/
 │   ├── app/
-│   │   ├── core/
-│   │   │   ├── auth.py          # JWT e autenticação
-│   │   │   └── email.py         # Envio de e-mails via Resend
-│   │   ├── models/
-│   │   │   ├── user.py
-│   │   │   ├── processingJob.py
-│   │   │   ├── clip.py
-│   │   │   ├── candidates.py
-│   │   │   ├── video.py
-│   │   │   └── password_reset.py
-│   │   ├── routers/
-│   │   │   ├── auth.py          # Rotas de autenticação
-│   │   │   └── jobs.py          # Rotas de processamento
-│   │   ├── schemas/
-│   │   │   └── auth.py
-│   │   ├── database.py
-│   │   └── main.py
+│   │   ├── core/                # Infra transversal
+│   │   │   ├── config.py        # Constantes/JWT
+│   │   │   ├── database.py      # Engine + sessão SQLModel
+│   │   │   ├── deps.py          # Dependências (get_current_user)
+│   │   │   ├── security.py      # Hash de senha + JWT
+│   │   │   ├── email.py         # Envio de e-mails via Resend
+│   │   │   ├── exceptions.py    # Exceções de domínio (§10.2)
+│   │   │   └── storage.py       # Abstração de armazenamento
+│   │   ├── modules/             # Um pacote por domínio
+│   │   │   ├── identity/        # Autenticação + User
+│   │   │   │   ├── models.py
+│   │   │   │   ├── schemas.py
+│   │   │   │   └── router.py
+│   │   │   └── clips/           # Vídeos, jobs e clipes
+│   │   │       ├── models.py
+│   │   │       ├── schemas.py
+│   │   │       └── router.py
+│   │   └── main.py              # Monta routers + handler de exceção
+│   ├── alembic/                 # Migrações versionadas
+│   │   └── versions/
+│   ├── alembic.ini
 │   ├── uploads/
 │   │   ├── videos/              # Vídeos enviados
 │   │   └── clips/               # Clipes gerados
-│   └── requirements.txt
+│   └── requirements/            # base.txt · api.txt · worker.txt
 │
 └── frontend/
     └── src/
