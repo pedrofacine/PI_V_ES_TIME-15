@@ -16,7 +16,8 @@ from pathlib import Path
 
 from app.core.database import create_db_and_tables
 from app.core.exceptions import DomainError
-from app.routers import auth, jobs, clips
+from app.routers import jobs, clips
+from app.modules.identity.router import router as identity_router
 
 from ml.scripts.process_video import _get_pipeline
 
@@ -41,7 +42,7 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/api/v1")
+app.include_router(identity_router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(clips.router, prefix="/api/v1")
 

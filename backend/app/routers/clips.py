@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
 from app.core.database import get_session
-from app.models import User, Video, ProcessingJob, Clip
+from app.modules.identity.models import User
+from app.models import Video, ProcessingJob, Clip
 from app.core.deps import get_current_user
 from datetime import timezone, timedelta
 

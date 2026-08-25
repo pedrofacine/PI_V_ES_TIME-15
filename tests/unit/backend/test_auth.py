@@ -14,8 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.models.password_reset import PasswordResetToken
-from app.models import User
+from app.modules.identity.models import User, PasswordResetToken
 from app.core.security import hash_password
 
 
@@ -156,7 +155,7 @@ def test_forgot_password_existing_email(client: TestClient):
     email = "forgot@example.com"
     register_and_get_token(client, email=email)
 
-    with patch("app.routers.auth.send_reset_email") as mock_send:
+    with patch("app.modules.identity.router.send_reset_email") as mock_send:
         resp = client.post("/api/v1/auth/forgot-password", json={"email": email})
 
     assert resp.status_code == 204
@@ -165,7 +164,7 @@ def test_forgot_password_existing_email(client: TestClient):
 
 def test_forgot_password_nonexistent_email(client: TestClient):
     """Non-existent email should still return 204 to prevent enumeration."""
-    with patch("app.routers.auth.send_reset_email") as mock_send:
+    with patch("app.modules.identity.router.send_reset_email") as mock_send:
         resp = client.post(
             "/api/v1/auth/forgot-password",
             json={"email": "ghost@example.com"},

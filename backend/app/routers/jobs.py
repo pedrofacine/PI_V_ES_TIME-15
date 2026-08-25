@@ -14,7 +14,8 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.database import get_session, engine
-from app.models import User, Video, ProcessingJob, Clip, Candidate
+from app.modules.identity.models import User
+from app.models import Video, ProcessingJob, Clip, Candidate
 from app.core.deps import get_current_user
 
 import json

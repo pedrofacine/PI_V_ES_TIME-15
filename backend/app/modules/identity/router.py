@@ -5,16 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.deps import get_current_user
 from sqlmodel import Session, select
 from app.core.database import get_session
-from app.models import User
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, TokenPayload
+from app.modules.identity.models import User, PasswordResetToken
+from app.modules.identity.schemas import UserCreate, UserLogin, UserResponse, Token, TokenPayload
 from app.core.security import hash_password, verify_password, create_access_token
 from pydantic import BaseModel, Field
-import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from app.models.password_reset import PasswordResetToken
 from app.core.email import send_reset_email
-from app.core.security import hash_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
