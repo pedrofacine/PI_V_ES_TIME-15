@@ -14,7 +14,6 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.core.database import create_db_and_tables
 from app.core.exceptions import DomainError
 from app.modules.clips.router import router as clips_jobs_router, clips_router
 from app.modules.identity.router import router as identity_router
@@ -48,7 +47,7 @@ app.include_router(clips_router, prefix="/api/v1")
 
 @app.on_event("startup")
 def on_startup():
-    create_db_and_tables()
+    # Schema agora é gerido por Alembic (migrações versionadas), não mais create_all.
     # Garante que as pastas de upload existem
     Path("uploads/videos").mkdir(parents=True, exist_ok=True)
     Path("uploads/clips").mkdir(parents=True, exist_ok=True)

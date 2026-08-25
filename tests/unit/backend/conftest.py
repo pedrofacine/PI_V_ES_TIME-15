@@ -51,8 +51,7 @@ def client_fixture(session: Session):
     app.dependency_overrides[get_session] = get_session_override
 
     with patch("app.main._get_pipeline", return_value=MagicMock()):
-        with patch("app.main.create_db_and_tables", return_value=None):
-            with TestClient(app, raise_server_exceptions=True) as client:
-                yield client
+        with TestClient(app, raise_server_exceptions=True) as client:
+            yield client
 
     app.dependency_overrides.clear()
