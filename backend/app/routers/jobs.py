@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from app.core.database import get_session, engine
 from app.models import User, Video, ProcessingJob, Clip, Candidate
-from app.core.auth import get_current_user
+from app.core.deps import get_current_user
 
 import json
 import time

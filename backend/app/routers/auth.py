@@ -2,7 +2,7 @@
 Rotas de autenticação: registro e login.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.core.auth import get_current_user
+from app.core.deps import get_current_user
 from sqlmodel import Session, select
 from app.core.database import get_session
 from app.models import User
