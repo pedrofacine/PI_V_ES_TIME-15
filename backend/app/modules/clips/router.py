@@ -5,24 +5,22 @@ Fluxo: Upload vídeo → cria Video → cria ProcessingJob → roda ML em backgr
 import traceback
 import uuid
 import threading
+import json
+import time
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select
 
 from app.core.database import get_session, engine
-from app.modules.identity.models import User
-from app.models import Video, ProcessingJob, Clip, Candidate
 from app.core.deps import get_current_user
-
-import json
-import time
-from fastapi.responses import StreamingResponse
-from fastapi import Query
-from app.models import ProcessingJob
+from app.core.exceptions import NotFoundError, ConflictError, DomainError
+from app.core.storage import get_storage
+from app.modules.identity.models import User
+from app.modules.clips.models import Video, ProcessingJob, Clip, Candidate
+from app.modules.clips.schemas import ConfirmPlayerRequest
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -265,11 +263,10 @@ async def create_job(
     # 1. Salva o arquivo em disco
     video_id   = uuid.uuid4()
     safe_name  = Path(str(video.filename)).name
-    video_path = UPLOAD_DIR / f"{video_id}_{safe_name}"
-    
+
     content = await video.read()
-    with open(video_path, "wb") as f:
-        f.write(content)
+    storage = get_storage()
+    video_path = storage.save(content, f"videos/{video_id}_{safe_name}")
 
     size_mb = len(content) / (1024 * 1024)
 
@@ -305,11 +302,6 @@ async def create_job(
 
     return {"job_id": str(job.id), "status": job.status}
 
-class ConfirmPlayerRequest(BaseModel):
-    candidate_signature: str
-    start_ts: int = 0
-    end_ts: int = 0
-
 @router.post("/{job_id}/confirm")
 def confirm_player(
     job_id: uuid.UUID, 
@@ -318,13 +310,13 @@ def confirm_player(
 ):
     job = session.get(ProcessingJob, job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job não encontrado.")
+        raise NotFoundError("Job não encontrado.")
 
     if job.status not in ["FAST_SCAN", "WAITING_USER"]:
-        raise HTTPException(status_code=400, detail="Este job não aceita mais confirmações.")
+        raise ConflictError("Este job não aceita mais confirmações.")
 
     if not job.video:
-        raise HTTPException(status_code=500, detail="Erro interno: Vídeo não atrelado ao Job.")
+        raise DomainError("Erro interno: Vídeo não atrelado ao Job.")
  
     if "_" in payload.candidate_signature:
         try:
@@ -345,3 +337,47 @@ def confirm_player(
     thread.start()
 
     return {"message": "Processamento retomado.", "status": "TRACKING"}
+
+clips_router = APIRouter(prefix="/clips", tags=["clips"])
+brasilia = timezone(timedelta(hours=-3))
+
+
+@clips_router.get("/")
+def list_clips(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    jobs = session.exec(
+        select(ProcessingJob)
+        .join(Video, ProcessingJob.video_id == Video.id)
+        .where(Video.user_id == current_user.id)
+        .where(ProcessingJob.status == "COMPLETED")
+        .order_by(ProcessingJob.created_at.desc())
+    ).all()
+
+    result = []
+    for job in jobs:
+        clips = session.exec(select(Clip).where(Clip.job_id == job.id)).all()
+        if not clips:
+            continue
+        result.append({
+            "job_id": str(job.id),
+            "target_number": job.target_number,
+            "generated_at": job.updated_at.astimezone(brasilia).strftime("%d/%m/%Y - %H:%M"),
+            "clips": [
+                {
+                    "id": str(c.id),
+                    "file_url": f"/uploads/clips/{job.id}/{Path(c.storage_path).name}",
+                    "duration": _format_duration(c.end_timestamp - c.start_timestamp),
+                }
+                for c in clips
+            ],
+        })
+    return result
+
+
+def _format_duration(seconds: float) -> str:
+    total = int(seconds)
+    m = total // 60
+    s = total % 60
+    return f"{m}:{s:02d}"
