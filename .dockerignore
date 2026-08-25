@@ -1,0 +1,7 @@
+**/__pycache__
+**/node_modules
+**/.venv
+**/uploads
+**/.git
+**/*.pyc
+.coverage
