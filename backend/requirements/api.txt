@@ -1,0 +1,4 @@
+-r base.txt
+uvicorn==0.41.0
+resend==2.29.0
+websockets==16.0
