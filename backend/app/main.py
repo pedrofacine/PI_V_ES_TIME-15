@@ -10,16 +10,22 @@ import asyncio
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from app.core.database import create_db_and_tables
+from app.core.exceptions import DomainError
 from app.routers import auth, jobs, clips
 
 from ml.scripts.process_video import _get_pipeline
 
 app = FastAPI(title="SmartScout API")
+
+
+@app.exception_handler(DomainError)
+def handle_domain_error(request, exc: DomainError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 app.add_middleware(
     CORSMiddleware,
