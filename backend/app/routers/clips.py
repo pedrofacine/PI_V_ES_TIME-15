@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
-from app.database import get_session
+from app.core.database import get_session
 from app.models import User, Video, ProcessingJob, Clip
 from app.core.auth import get_current_user
 from datetime import timezone, timedelta

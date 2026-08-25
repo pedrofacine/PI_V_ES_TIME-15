@@ -4,7 +4,7 @@ Rotas de autenticação: registro e login.
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.auth import get_current_user
 from sqlmodel import Session, select
-from app.database import get_session
+from app.core.database import get_session
 from app.models import User
 from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, TokenPayload
 from app.core.security import hash_password, verify_password, create_access_token

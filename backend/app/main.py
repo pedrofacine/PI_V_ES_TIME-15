@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.database import create_db_and_tables
+from app.core.database import create_db_and_tables
 from app.routers import auth, jobs, clips
 
 from ml.scripts.process_video import _get_pipeline

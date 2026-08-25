@@ -2,9 +2,6 @@ import os
 from sqlmodel import SQLModel, create_engine, Session
 from dotenv import load_dotenv
 
-# Importa os models para que SQLModel.metadata registre as tabelas antes de create_all
-from app.models import User, Video, ProcessingJob, Clip  # noqa: F401
-
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")

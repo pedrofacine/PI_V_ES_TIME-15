@@ -15,7 +15,7 @@ from sqlmodel.pool import StaticPool
 # which binds the name in app.main, so we patch it there too.
 with patch("ml.scripts.process_video._get_pipeline", return_value=MagicMock()):
     from app.main import app
-    from app.database import get_session
+    from app.core.database import get_session
 
 
 @pytest.fixture(name="engine")

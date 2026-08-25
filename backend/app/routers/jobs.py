@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.database import get_session, engine
+from app.core.database import get_session, engine
 from app.models import User, Video, ProcessingJob, Clip, Candidate
 from app.core.auth import get_current_user
 
@@ -86,7 +86,7 @@ def stream_job_status(job_id: uuid.UUID):
 
 def update_job_status(job_id: uuid.UUID, status: str):
     """Função auxiliar isolada para atualizar status no banco dentro de threads."""
-    from app.database import get_session
+    from app.core.database import get_session
     session = next(get_session())
     try:
         job = session.get(ProcessingJob, job_id)
@@ -114,7 +114,7 @@ def run_fast_scan(job_id: uuid.UUID, video_path: str, target_number: int, start_
     
     # CALLBACK 1: Salva foto no banco instantaneamente
     def save_candidate_to_db(cand_dict):
-        from app.database import get_session
+        from app.core.database import get_session
         session = next(get_session())
         try:
             novo_candidato = Candidate(
@@ -141,7 +141,7 @@ def run_fast_scan(job_id: uuid.UUID, video_path: str, target_number: int, start_
 
     # CALLBACK 2: Checa se o usuário clicou para abortar o Fast Scan
     def check_stop():
-        from app.database import get_session
+        from app.core.database import get_session
         session = next(get_session())
         try:
             job = session.get(ProcessingJob, job_id)
@@ -169,7 +169,7 @@ def run_fast_scan(job_id: uuid.UUID, video_path: str, target_number: int, start_
         )
 
         # Se terminou o loop e ninguém clicou, muda para WAITING_USER
-        from app.database import get_session
+        from app.core.database import get_session
         session = next(get_session())
         try:
             job = session.get(ProcessingJob, job_id)
@@ -199,7 +199,7 @@ def run_full_tracking(job_id: uuid.UUID, video_path: str, target_number: int, ta
     update_job_status(job_id, "TRACKING")
     
     def save_clip_to_db(clip_dict):
-        from app.database import get_session
+        from app.core.database import get_session
         session = next(get_session())
         try:
             new_clip = Clip(
