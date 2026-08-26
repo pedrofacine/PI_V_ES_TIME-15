@@ -6,13 +6,15 @@ API pode importar este módulo (para publicar via `.delay()`) sem puxar torch.
 import traceback
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 from app.celery_app import celery_app
+from app.core.storage import get_storage
 from app.modules.clips.models import ProcessingJob, Clip, Candidate
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-CLIPS_DIR = BASE_DIR / "uploads" / "clips"
+# Resolve pela abstracao de storage (§4.2): o worker precisa gravar na MESMA
+# raiz de uploads que a API serve via StaticFiles. Caminho relativo a __file__
+# apontava um nivel fundo demais e deixava os clipes fora do volume montado.
+CLIPS_DIR = get_storage().path_for("clips")
 CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
 
