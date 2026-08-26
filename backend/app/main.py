@@ -1,11 +1,3 @@
-import sys
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-    
-
 import asyncio
 
 from fastapi import FastAPI
@@ -17,8 +9,6 @@ from pathlib import Path
 from app.core.exceptions import DomainError
 from app.modules.clips.router import router as clips_jobs_router, clips_router
 from app.modules.identity.router import router as identity_router
-
-from ml.scripts.process_video import _get_pipeline
 
 app = FastAPI(title="SmartScout API")
 
@@ -51,10 +41,6 @@ def on_startup():
     # Garante que as pastas de upload existem
     Path("uploads/videos").mkdir(parents=True, exist_ok=True)
     Path("uploads/clips").mkdir(parents=True, exist_ok=True)
-
-    print("[SISTEMA] Iniciando aquecimento da IA (carregando modelos)...")
-    _get_pipeline()
-    print("[SISTEMA] IA carregada na memória e pronta para uso!")
 
 
 app.mount("/api/v1/uploads", StaticFiles(directory="uploads"), name="uploads")
