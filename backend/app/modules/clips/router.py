@@ -2,9 +2,7 @@
 Rotas para criação e consulta de jobs de processamento.
 Fluxo: Upload vídeo → cria Video → cria ProcessingJob → roda ML em background.
 """
-import traceback
 import uuid
-import threading
 import json
 import time
 from pathlib import Path
@@ -21,6 +19,7 @@ from app.core.storage import get_storage
 from app.modules.identity.models import User
 from app.modules.clips.models import Video, ProcessingJob, Clip, Candidate
 from app.modules.clips.schemas import ConfirmPlayerRequest
+from app.modules.clips.tasks import run_fast_scan, run_full_tracking
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -83,173 +82,6 @@ def stream_job_status(job_id: uuid.UUID):
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-def update_job_status(job_id: uuid.UUID, status: str):
-    """Função auxiliar isolada para atualizar status no banco dentro de threads."""
-    from app.core.database import get_session
-    session = next(get_session())
-    try:
-        job = session.get(ProcessingJob, job_id)
-        if job:
-            job.status = status
-            job.updated_at = datetime.now(timezone.utc)
-            session.commit()
-    except Exception as e:
-        session.rollback()
-        print(f"[db error] Falha ao atualizar status: {e}")
-    finally:
-        session.close()
-
-def run_fast_scan(job_id: uuid.UUID, video_path: str, target_number: int, start_ts: int, end_ts: int):
-    """
-    FASE 1: Roda a busca expressa e salva os candidatos no banco EM TEMPO REAL.
-    """
-    import sys
-    PROJECT_ROOT = Path(__file__).resolve().parents[3]
-    if str(PROJECT_ROOT) not in sys.path:
-        sys.path.insert(0, str(PROJECT_ROOT))
-        
-    print(f"[FAST SCAN] Iniciando job {job_id}")
-    update_job_status(job_id, "FAST_SCAN")
-    
-    # CALLBACK 1: Salva foto no banco instantaneamente
-    def save_candidate_to_db(cand_dict):
-        from app.core.database import get_session
-        session = next(get_session())
-        try:
-            novo_candidato = Candidate(
-                job_id=job_id,
-                signature=cand_dict["id"],
-                name=cand_dict["name"],
-                number=cand_dict["number"],
-                color_hex=cand_dict["color"],
-                image_path=cand_dict["image"],
-                is_target=(cand_dict["number"] == target_number)
-            )
-            session.add(novo_candidato)
-            
-            # Força o 'updated_at' para o SSE disparar pro Frontend
-            job = session.get(ProcessingJob, job_id)
-            if job:
-                job.updated_at = datetime.now(timezone.utc)
-            session.commit()
-        except Exception as e:
-            print(f"[DB ERROR] Erro ao salvar candidato: {e}")
-            session.rollback()
-        finally:
-            session.close()
-
-    # CALLBACK 2: Checa se o usuário clicou para abortar o Fast Scan
-    def check_stop():
-        from app.core.database import get_session
-        session = next(get_session())
-        try:
-            job = session.get(ProcessingJob, job_id)
-            # Se o status mudou de FAST_SCAN para TRACKING (usuário clicou), interrompe!
-            if not job:
-                return True
-            return job.status != "FAST_SCAN"
-        finally:
-            session.close()
-
-    try:
-        from ml.scripts.process_video import _get_pipeline
-        pipeline = _get_pipeline()
-        output_dir = str(CLIPS_DIR / str(job_id))
-        
-        pipeline.fast_scan(
-            video_path=video_path,
-            output_dir=output_dir,
-            target_number=target_number,
-            frames_to_skip=30,
-            on_candidate_found=save_candidate_to_db,
-            should_stop=check_stop,
-            start_ts=start_ts,
-            end_ts=end_ts
-        )
-
-        # Se terminou o loop e ninguém clicou, muda para WAITING_USER
-        from app.core.database import get_session
-        session = next(get_session())
-        try:
-            job = session.get(ProcessingJob, job_id)
-            if job and job.status == "FAST_SCAN":
-                job.status = "WAITING_USER"
-                session.commit()
-                print(f"[FAST SCAN] Vídeo inteiro verificado. Aguardando usuário.")
-        finally:
-            session.close()
-
-    except Exception:
-        print(f"[FAST SCAN ERROR] Falha:")
-        print(traceback.format_exc())
-        update_job_status(job_id, "ERROR")
-
-
-def run_full_tracking(job_id: uuid.UUID, video_path: str, target_number: int, target_signature: str, start_ts: int, end_ts: int):
-    """
-    FASE 2: Rastreio rigoroso filtrando pela Assinatura (Número + Cor).
-    """
-    import sys
-    PROJECT_ROOT = Path(__file__).resolve().parents[3]
-    if str(PROJECT_ROOT) not in sys.path:
-        sys.path.insert(0, str(PROJECT_ROOT))
-        
-    print(f"[TRACKING] Iniciando recorte final do job {job_id}")
-    update_job_status(job_id, "TRACKING")
-    
-    def save_clip_to_db(clip_dict):
-        from app.core.database import get_session
-        session = next(get_session())
-        try:
-            new_clip = Clip(
-                job_id=job_id,
-                storage_path=clip_dict["path"],
-                start_timestamp=clip_dict["start_ts"],
-                end_timestamp=clip_dict["end_ts"],
-            )
-            session.add(new_clip)
-            
-            job = session.get(ProcessingJob, job_id)
-            if job:
-                job.updated_at = datetime.now(timezone.utc)
-            session.commit()
-        except Exception as e:
-            session.rollback()
-            print(f"[db error] Falha ao salvar clipe: {e}")
-        finally:
-            session.close()
-
-    def set_extracting_status():
-        print(f"[TRACKING] Iniciando recorte de clipes. Mudando status para EXTRACTING.")
-        update_job_status(job_id, "EXTRACTING")
-
-    try:
-        from ml.scripts.process_video import _get_pipeline
-        pipeline = _get_pipeline()
-        output_dir = str(CLIPS_DIR / str(job_id))
-        
-        pipeline.process(
-            video_path=video_path,
-            target_number=target_number,
-            target_signature=target_signature,
-            output_dir=output_dir,
-            start_ts=start_ts,
-            end_ts=end_ts,
-            on_clip_generated=save_clip_to_db,
-            on_extracting_start=set_extracting_status,
-            debug=True,
-        )
-
-        update_job_status(job_id, "COMPLETED")
-        print(f"[TRACKING] Job {job_id} concluído.")
-
-    except Exception:
-        print(f"[TRACKING ERROR] Falha:")
-        print(traceback.format_exc())
-        update_job_status(job_id, "ERROR")
-
-
-
 @router.post("/", status_code=202)
 async def create_job(
     target_number: int  = Form(..., ge=0, le=999),
@@ -292,13 +124,8 @@ async def create_job(
     session.commit()
     session.refresh(job)
 
-    # 4. Dispara o FAST SCAN (fase 1) em background
-    thread = threading.Thread(
-        target=run_fast_scan,
-        args=(job.id, str(video_path), target_number, start_ts, end_ts),
-        daemon=True,
-    )
-    thread.start()
+    # 4. Publica o FAST SCAN (fase 1) na fila do worker
+    run_fast_scan.delay(job.id, str(video_path), target_number, start_ts, end_ts)
 
     return {"job_id": str(job.id), "status": job.status}
 
@@ -329,12 +156,10 @@ def confirm_player(
     session.add(job)
     session.commit()
 
-    thread = threading.Thread(
-        target=run_full_tracking,
-        args=(job.id, job.video.storage_path, job.target_number, payload.candidate_signature, payload.start_ts, payload.end_ts),
-        daemon=True,
+    run_full_tracking.delay(
+        job.id, job.video.storage_path, job.target_number,
+        payload.candidate_signature, payload.start_ts, payload.end_ts,
     )
-    thread.start()
 
     return {"message": "Processamento retomado.", "status": "TRACKING"}
 
