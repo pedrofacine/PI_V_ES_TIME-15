@@ -4,8 +4,8 @@ from typing import Optional, List, TYPE_CHECKING
 
 from sqlmodel import Field, SQLModel, Relationship
 
-if TYPE_CHECKING:
-    from app.modules.identity.models import User
+#if TYPE_CHECKING:
+#    from app.modules.identity.models import User
 
 
 class Video(SQLModel, table=True):
@@ -19,7 +19,7 @@ class Video(SQLModel, table=True):
     file_size_mb: Optional[float] = None
     uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    user: Optional["User"] = Relationship(back_populates="videos")
+    #user: Optional["User"] = Relationship(back_populates="videos")
     jobs: List["ProcessingJob"] = Relationship(back_populates="video")
 
 

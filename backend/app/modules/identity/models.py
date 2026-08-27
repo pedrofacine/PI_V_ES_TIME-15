@@ -19,7 +19,7 @@ class User(SQLModel, table=True):
     max_clips_allowed: int = Field(default=20)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    videos: List["Video"] = Relationship(back_populates="user")
+    #videos: List["Video"] = Relationship(back_populates="user")
 
 
 class PasswordResetToken(SQLModel, table=True):
