@@ -30,3 +30,34 @@ def test_importing_tasks_does_not_import_torch():
     importlib.reload(tasks_mod)
 
     assert "torch" not in sys.modules
+
+
+def test_worker_entrypoint_resolves_all_mappers():
+    """O worker é um entrypoint separado da API e precisa registrar TODOS os models.
+
+    `Video.user` referencia "User" por string e o SQLAlchemy só resolve nomes de
+    classes que foram efetivamente importadas. A API importa User via router de
+    identity; o worker, não. Sem isso, toda task que toca o banco falha com
+    "expression 'User' failed to locate a name".
+
+    Roda em subprocesso porque o conftest já importa `app.main` (que registra
+    tudo), o que mascararia o problema se o teste fosse in-process.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    backend_dir = Path(__file__).resolve().parents[3] / "backend"
+    code = (
+        "import app.celery_app, app.modules.clips.tasks; "
+        "from sqlalchemy.orm import configure_mappers; "
+        "configure_mappers()"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(backend_dir),
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr[-800:]
