@@ -7,7 +7,7 @@ from typing import Any
 import bcrypt
 from jose import JWTError, jwt
 
-from app.config import JWT_ALGORITHM, JWT_SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.core.config import JWT_ALGORITHM, JWT_SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # bcrypt tem limite de 72 bytes
 BCRYPT_MAX_BYTES = 72

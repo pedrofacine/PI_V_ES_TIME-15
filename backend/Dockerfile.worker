@@ -1,0 +1,25 @@
+# Worker de ML: precisa de torch/CUDA. Base com runtime CUDA 11.8 (compat. cu118).
+FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3.11 python3.11-dev python3-pip \
+        ffmpeg libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python
+
+WORKDIR /app
+
+# Requirements ficam em backend/requirements/. O build context é a raiz do repo.
+COPY backend/requirements/ requirements/
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir -r requirements/worker.txt
+
+# App e pacote ml precisam ser importáveis como top-level (app.*, ml.*).
+COPY backend/ /app/
+COPY ml/ /app/ml/
+
+CMD ["celery", "-A", "app.celery_app", "worker", "--concurrency=1", "--loglevel=info"]

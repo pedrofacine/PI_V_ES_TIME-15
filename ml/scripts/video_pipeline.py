@@ -49,6 +49,12 @@ from ml.scripts.trackers.ball_tracker import BallTracker
 from ml.scripts.trackers.tracker import PlayerTracker
 from ml.scripts.color_extractor import ColorExtractor
 from ml.scripts.config import setup_pipeline_logger
+import warnings
+import logging
+# Silencia os avisos de depreciação nativos do Python
+warnings.filterwarnings("ignore", message=".*'half' is deprecated.*")
+# Silencia o falatório do logger interno da YOLO (exibe apenas erros fatais)
+logging.getLogger("ultralytics").setLevel(logging.ERROR)
 
 class VideoPipeline:
     """

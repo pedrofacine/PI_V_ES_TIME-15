@@ -1,0 +1,14 @@
+-r base.txt
+--extra-index-url https://download.pytorch.org/whl/cu118
+# Builds cu118 fixadas: o --extra-index-url apenas ADICIONA um indice, nao restringe.
+# Sem o sufixo +cu118 o pip resolve para a build mais nova (cu130), que exige driver
+# 13.x e cai para CPU em drivers 12.x. cu118 tambem mantem suporte a Pascal (sm_61).
+torch==2.7.1+cu118
+torchvision==0.22.1+cu118
+torchaudio==2.7.1+cu118
+ultralytics>=8.0.0
+opencv-python-headless>=4.8.0
+supervision>=0.18.0
+easyocr>=1.7.0
+deep-sort-realtime>=1.3.0
+imageio-ffmpeg>=0.6.0

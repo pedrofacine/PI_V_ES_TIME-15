@@ -11,7 +11,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.models import User, Video, ProcessingJob
+from app.modules.identity.models import User
+from app.modules.clips.models import Video, ProcessingJob
 from app.core.security import hash_password
 
 
@@ -89,8 +90,7 @@ def test_create_job_success(client: TestClient):
     """Valid upload + auth token returns 202 with job_id and PENDING status."""
     token = register_and_get_token(client, email="createjob@example.com")
 
-    with patch("app.routers.jobs.threading.Thread") as mock_thread:
-        mock_thread.return_value = MagicMock()
+    with patch("app.modules.clips.router.run_fast_scan") as mock_task:
         response = client.post(
             "/api/v1/jobs/",
             data={"target_number": "10", "start_ts": "0", "end_ts": "0"},
@@ -102,15 +102,14 @@ def test_create_job_success(client: TestClient):
     data = response.json()
     assert "job_id" in data
     assert data["status"] == "PENDING"
-    # Thread was started (not a real background call)
-    mock_thread.return_value.start.assert_called_once()
+    mock_task.delay.assert_called_once()
 
 
 def test_create_job_invalid_number_negative(client: TestClient):
     """target_number < 0 must fail with 422 (Pydantic/FastAPI validation)."""
     token = register_and_get_token(client, email="negnum@example.com")
 
-    with patch("app.routers.jobs.threading.Thread"):
+    with patch("app.modules.clips.router.run_fast_scan"):
         response = client.post(
             "/api/v1/jobs/",
             data={"target_number": "-1", "start_ts": "0", "end_ts": "0"},
@@ -125,7 +124,7 @@ def test_create_job_invalid_number_too_large(client: TestClient):
     """target_number > 999 must fail with 422 (Pydantic/FastAPI validation)."""
     token = register_and_get_token(client, email="bignum@example.com")
 
-    with patch("app.routers.jobs.threading.Thread"):
+    with patch("app.modules.clips.router.run_fast_scan"):
         response = client.post(
             "/api/v1/jobs/",
             data={"target_number": "1000", "start_ts": "0", "end_ts": "0"},
@@ -154,21 +153,21 @@ def test_confirm_player_wrong_status(client: TestClient, session: Session):
     """Job in COMPLETED status must return 400 (no more confirmations accepted)."""
     _, _, job = _create_user_video_job(session, status="COMPLETED")
 
-    with patch("app.routers.jobs.threading.Thread"):
+    with patch("app.modules.clips.router.run_full_tracking"):
         resp = client.post(
             f"/api/v1/jobs/{job.id}/confirm",
             json={"candidate_signature": "10_#ff0000", "start_ts": 0, "end_ts": 0},
         )
 
-    assert resp.status_code == 400
+    # F0 §10.2: estado não-confirmável agora é 409 Conflict (era 400)
+    assert resp.status_code == 409
 
 
 def test_confirm_player_success(client: TestClient, session: Session):
     """Job in WAITING_USER status with a valid signature returns 200 and status TRACKING."""
     _, _, job = _create_user_video_job(session, status="WAITING_USER")
 
-    with patch("app.routers.jobs.threading.Thread") as mock_thread:
-        mock_thread.return_value = MagicMock()
+    with patch("app.modules.clips.router.run_full_tracking") as mock_task:
         resp = client.post(
             f"/api/v1/jobs/{job.id}/confirm",
             json={"candidate_signature": "10_#ff0000", "start_ts": 0, "end_ts": 0},
@@ -177,7 +176,7 @@ def test_confirm_player_success(client: TestClient, session: Session):
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "TRACKING"
-    mock_thread.return_value.start.assert_called_once()
+    mock_task.delay.assert_called_once()
 
     # Verify the DB record was updated
     session.refresh(job)
@@ -188,8 +187,7 @@ def test_confirm_player_fast_scan_status(client: TestClient, session: Session):
     """Job in FAST_SCAN status (user clicked early) also accepts confirmation."""
     _, _, job = _create_user_video_job(session, status="FAST_SCAN")
 
-    with patch("app.routers.jobs.threading.Thread") as mock_thread:
-        mock_thread.return_value = MagicMock()
+    with patch("app.modules.clips.router.run_full_tracking") as mock_task:
         resp = client.post(
             f"/api/v1/jobs/{job.id}/confirm",
             json={"candidate_signature": "10_#ff0000", "start_ts": 0, "end_ts": 0},
@@ -198,6 +196,7 @@ def test_confirm_player_fast_scan_status(client: TestClient, session: Session):
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "TRACKING"
+    mock_task.delay.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -209,13 +208,13 @@ def test_stream_job_status_not_found(client: TestClient, engine):
     Streaming a non-existent job UUID returns an SSE response whose first
     data payload contains an 'error' key.
 
-    stream_job_status opens `Session(engine)` directly from app.routers.jobs
+    stream_job_status opens `Session(engine)` directly from app.modules.clips.router
     (bypassing the dependency-injected test session).  We patch that engine
     reference so it uses the test engine, ensuring the job lookup returns None.
     """
     random_id = str(uuid.uuid4())
 
-    with patch("app.routers.jobs.engine", engine):
+    with patch("app.modules.clips.router.engine", engine):
         resp = client.get(f"/api/v1/jobs/{random_id}/stream")
 
     # The endpoint returns a StreamingResponse regardless; check first chunk.
@@ -234,7 +233,7 @@ def test_stream_job_status_found(client: TestClient, session: Session, engine):
     """
     _, _, job = _create_user_video_job(session, status="COMPLETED")
 
-    with patch("app.routers.jobs.engine", engine):
+    with patch("app.modules.clips.router.engine", engine):
         resp = client.get(f"/api/v1/jobs/{job.id}/stream")
 
     assert resp.status_code == 200

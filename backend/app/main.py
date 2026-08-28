@@ -1,25 +1,21 @@
-import sys
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-    
-
 import asyncio
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.database import create_db_and_tables
-from app.routers import auth, jobs, clips
-
-from ml.scripts.process_video import _get_pipeline
+from app.core.exceptions import DomainError
+from app.modules.clips.router import router as clips_jobs_router, clips_router
+from app.modules.identity.router import router as identity_router
 
 app = FastAPI(title="SmartScout API")
+
+
+@app.exception_handler(DomainError)
+def handle_domain_error(request, exc: DomainError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,20 +31,16 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(jobs.router, prefix="/api/v1")
-app.include_router(clips.router, prefix="/api/v1")
+app.include_router(identity_router, prefix="/api/v1")
+app.include_router(clips_jobs_router, prefix="/api/v1")
+app.include_router(clips_router, prefix="/api/v1")
 
 @app.on_event("startup")
 def on_startup():
-    create_db_and_tables()
+    # Schema agora é gerido por Alembic (migrações versionadas), não mais create_all.
     # Garante que as pastas de upload existem
     Path("uploads/videos").mkdir(parents=True, exist_ok=True)
     Path("uploads/clips").mkdir(parents=True, exist_ok=True)
-
-    print("[SISTEMA] Iniciando aquecimento da IA (carregando modelos)...")
-    _get_pipeline()
-    print("[SISTEMA] IA carregada na memória e pronta para uso!")
 
 
 app.mount("/api/v1/uploads", StaticFiles(directory="uploads"), name="uploads")
