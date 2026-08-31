@@ -1,4 +1,6 @@
 """Funções geométricas puras usadas pelo VideoPipeline."""
+import logging
+
 import cv2
 import numpy as np
 
@@ -67,3 +69,22 @@ def extract_core_color(torso_crop: np.ndarray) -> str | None:
     # Converte o BGR médio para código hexadecimal
     hex_color = '#%02x%02x%02x' % (int(mean_bgr[2]), int(mean_bgr[1]), int(mean_bgr[0]))
     return hex_color
+
+
+def color_distance(hex1: str, hex2: str, logger: logging.Logger | None = None) -> float:
+    """Calcula a distância perceptual entre duas cores usando o espaço LAB (visão humana)."""
+    def hex_to_lab(h: str) -> np.ndarray:
+        h = h.lstrip('#')
+        b, g, r = tuple(int(h[i:i+2], 16) for i in (4, 2, 0))
+        pixel_bgr = np.array([[[b, g, r]]], dtype=np.uint8)
+        pixel_lab = cv2.cvtColor(pixel_bgr, cv2.COLOR_BGR2LAB)
+        return pixel_lab[0][0].astype(float)
+
+    try:
+        lab1 = hex_to_lab(hex1)
+        lab2 = hex_to_lab(hex2)
+        return float(np.linalg.norm(lab1 - lab2))
+    except Exception:
+        if logger:
+            logger.warning(f"Falha ao calcular cor entre {hex1} e {hex2}")
+        return 999.0  # Em caso de erro de parsing, assume que são muito diferentes

@@ -633,25 +633,7 @@ class VideoPipeline:
                 self.logger.debug(f"  [MAP] frame={frame_idx} track={track_id} leu={numbers}")
 
     def _color_distance(self, hex1: str, hex2: str) -> float:
-        """Calcula a distância perceptual entre duas cores usando o espaço LAB (Visão Humana)"""
-        def hex_to_lab(h: str) -> np.ndarray:
-            h = h.lstrip('#')
-            # Converte Hex string para valores BGR inteiros
-            b, g, r = tuple(int(h[i:i+2], 16) for i in (4, 2, 0))
-            # Cria um "pixel" 1x1 no formato que o OpenCV entende (uint8)
-            pixel_bgr = np.array([[[b, g, r]]], dtype=np.uint8)
-            # Converte para LAB e extrai os valores float
-            pixel_lab = cv2.cvtColor(pixel_bgr, cv2.COLOR_BGR2LAB)
-            return pixel_lab[0][0].astype(float)
-        
-        try:
-            lab1 = hex_to_lab(hex1)
-            lab2 = hex_to_lab(hex2)
-            # Retorna a distância Euclidiana 3D, mas agora no espaço LAB
-            return float(np.linalg.norm(lab1 - lab2))
-        except Exception:
-            self.logger.warning(f"Falha ao calcular cor entre {hex1} e {hex2}")
-            return 999.0 # Em caso de erro de parsing, assume que são muito diferentes
+        return geometry_utils.color_distance(hex1, hex2, logger=self.logger)
 
     # ======================================================
     # PASSO 2 — RESOLUÇÃO DE IDs
