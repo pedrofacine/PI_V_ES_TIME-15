@@ -29,7 +29,6 @@ from ml.scripts.config import (
     CLIP_PADDING_SECONDS,
     FRAME_SKIP,
     GAP_TOLERANCE,
-    MIN_CLIP_FRAMES,
     MIN_OCR_VOTES,
     MAX_DISTINCT_READINGS,
     OCR_INTERVAL,
@@ -37,11 +36,6 @@ from ml.scripts.config import (
     USE_GPU,
     TRACKING_COLOR_TOLERANCE,
     FAST_SCAN_COLOR_TOLERANCE,
-    SCOREBOARD_ZONE_TOP,
-    SCOREBOARD_ZONE_BOTTOM,
-    MAX_PLAYER_ASPECT_RATIO,
-    TORSO_Y_START,
-    TORSO_Y_END,
 )
 from ml.scripts.kinematic_analyzer import KinematicAnalyzer
 from ml.scripts.jersey_reader import JerseyReader
@@ -779,46 +773,13 @@ class VideoPipeline:
         f_idx: int,
         target_track_ids: set[str],
     ) -> bool:
-        """Verifica se algum dos track_ids alvo está presente neste frame."""
-        frame_data = video_metadata.get(f_idx)
-        if not frame_data:
-            return False
-        return any(
-            str(tid) in target_track_ids
-            for _, _, _, _, tid in frame_data["tracks"]
-        )
+        return geometry_utils.target_in_frame(video_metadata, f_idx, target_track_ids)
 
     def _group_frames_into_intervals(
         self,
         target_frames: list[int],
     ) -> list[tuple[int, int]]:
-        """
-        Agrupa uma lista ordenada de frames em intervalos contíguos.
-
-        Frames com gap <= GAP_TOLERANCE são considerados do mesmo intervalo.
-        Intervalos menores que MIN_CLIP_FRAMES são descartados.
-        """
-        if not target_frames:
-            return []
-
-        intervals: list[tuple[int, int]] = []
-        current_start = target_frames[0]
-        current_end = target_frames[0]
-
-        for f in target_frames[1:]:
-            if f - current_end <= GAP_TOLERANCE:
-                current_end = f
-            else:
-                if (current_end - current_start) >= MIN_CLIP_FRAMES:
-                    intervals.append((current_start, current_end))
-                current_start = f
-                current_end = f
-
-        # Fecha o último intervalo
-        if (current_end - current_start) >= MIN_CLIP_FRAMES:
-            intervals.append((current_start, current_end))
-
-        return intervals
+        return geometry_utils.group_frames_into_intervals(target_frames)
 
     # ======================================================
     # PASSO 4 — ESCRITA DOS CLIPES

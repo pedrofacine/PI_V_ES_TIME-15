@@ -5,7 +5,9 @@ import cv2
 import numpy as np
 
 from ml.scripts.config import (
+    GAP_TOLERANCE,
     MAX_PLAYER_ASPECT_RATIO,
+    MIN_CLIP_FRAMES,
     TORSO_Y_START,
     TORSO_Y_END,
     SCOREBOARD_ZONE_TOP,
@@ -88,3 +90,44 @@ def color_distance(hex1: str, hex2: str, logger: logging.Logger | None = None) -
         if logger:
             logger.warning(f"Falha ao calcular cor entre {hex1} e {hex2}")
         return 999.0  # Em caso de erro de parsing, assume que são muito diferentes
+
+
+def target_in_frame(video_metadata: dict, f_idx: int, target_track_ids: set[str]) -> bool:
+    """Verifica se algum dos track_ids alvo está presente neste frame."""
+    frame_data = video_metadata.get(f_idx)
+    if not frame_data:
+        return False
+    return any(
+        str(tid) in target_track_ids
+        for _, _, _, _, tid in frame_data["tracks"]
+    )
+
+
+def group_frames_into_intervals(target_frames: list[int]) -> list[tuple[int, int]]:
+    """
+    Agrupa uma lista ordenada de frames em intervalos contíguos.
+
+    Frames com gap <= GAP_TOLERANCE são considerados do mesmo intervalo.
+    Intervalos menores que MIN_CLIP_FRAMES são descartados.
+    """
+    if not target_frames:
+        return []
+
+    intervals: list[tuple[int, int]] = []
+    current_start = target_frames[0]
+    current_end = target_frames[0]
+
+    for f in target_frames[1:]:
+        if f - current_end <= GAP_TOLERANCE:
+            current_end = f
+        else:
+            if (current_end - current_start) >= MIN_CLIP_FRAMES:
+                intervals.append((current_start, current_end))
+            current_start = f
+            current_end = f
+
+    # Fecha o último intervalo
+    if (current_end - current_start) >= MIN_CLIP_FRAMES:
+        intervals.append((current_start, current_end))
+
+    return intervals
