@@ -7,6 +7,13 @@ import { listClips, ClipHistoryGroup } from "../../services/api";
 
 type ClipWithDate = ClipData & { generatedAt: string; videoUrl?: string };
 
+function parseGeneratedAt(generatedAt: string): number {
+    const [datePart, timePart] = generatedAt.split(" - ");
+    const [day, month, year] = datePart.split("/").map(Number);
+    const [hour, minute] = timePart.split(":").map(Number);
+    return new Date(year, month - 1, day, hour, minute).getTime();
+}
+
 function groupToClips(group: ClipHistoryGroup): ClipWithDate[] {
     return group.clips.map((clip, i) => ({
         id:           clip.id,
@@ -44,8 +51,8 @@ export default function ClipsHistory() {
             !normalized || clip.title.toLowerCase().includes(normalized)
         );
         return filtered.sort((a, b) => {
-            if (sortBy === "recent") return b.generatedAt.localeCompare(a.generatedAt);
-            return a.generatedAt.localeCompare(b.generatedAt);
+            const diff = parseGeneratedAt(a.generatedAt) - parseGeneratedAt(b.generatedAt);
+            return sortBy === "recent" ? -diff : diff;
         });
     }, [allClips, search, sortBy]);
 
