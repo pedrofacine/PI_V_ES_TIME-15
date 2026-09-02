@@ -32,6 +32,28 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _delete_job_and_orphan_video(session: Session, job: ProcessingJob) -> None:
+    """
+    Apaga o job (candidatos somem via cascade). Se nenhum outro job ainda
+    apontar para o mesmo vídeo, apaga também o vídeo original (linha + arquivo).
+    Assume que todos os clipes do job já foram apagados por quem chamou.
+    """
+    video_id = job.video_id
+    session.delete(job)
+    session.flush()
+
+    other_job_using_video = session.exec(
+        select(ProcessingJob).where(ProcessingJob.video_id == video_id)
+    ).first()
+    if other_job_using_video:
+        return
+
+    video = session.get(Video, video_id)
+    if video:
+        get_storage().delete(video.storage_path)
+        session.delete(video)
+
+
 @router.get("/{job_id}/stream")
 def stream_job_status(job_id: uuid.UUID):
     def event_generator():
@@ -149,6 +171,9 @@ def delete_job_clips(
     for clip in clips:
         storage.delete(clip.storage_path)
         session.delete(clip)
+    session.flush()
+
+    _delete_job_and_orphan_video(session, job)
     session.commit()
 
 
@@ -241,6 +266,12 @@ def delete_clip(
 
     get_storage().delete(clip.storage_path)
     session.delete(clip)
+    session.flush()
+
+    remaining_clip = session.exec(select(Clip).where(Clip.job_id == job.id)).first()
+    if not remaining_clip:
+        _delete_job_and_orphan_video(session, job)
+
     session.commit()
 
 
