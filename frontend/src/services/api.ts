@@ -172,6 +172,7 @@ export async function authRequest<T>(
       const data = await res.json().catch(() => ({}));
       throw new Error(data.detail ?? `Erro ${res.status}`);
     }
+    if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError")
@@ -226,6 +227,14 @@ export async function getJobStatus(jobId: string): Promise<JobStatus> {
 
 export async function listClips(): Promise<ClipHistoryGroup[]> {
   return authRequest<ClipHistoryGroup[]>("/clips/");
+}
+
+export async function deleteClip(clipId: string): Promise<void> {
+  await authRequest<void>(`/clips/${clipId}`, { method: "DELETE" });
+}
+
+export async function deleteJobClips(jobId: string): Promise<void> {
+  await authRequest<void>(`/jobs/${jobId}/clips`, { method: "DELETE" });
 }
 
 export async function downloadClip(fileUrl: string, filename: string): Promise<void> {

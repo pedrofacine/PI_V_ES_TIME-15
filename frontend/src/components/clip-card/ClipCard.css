@@ -120,7 +120,14 @@
     text-overflow: ellipsis;
 }
 
-.download-button {
+.clip-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.download-button,
+.delete-button {
   background-color: transparent;
   color: #FFFFFF;
   border: none;
@@ -140,5 +147,14 @@
 }
 
 .download-button:active {
-  transform: scale(0.90); 
+  transform: scale(0.90);
+}
+
+.delete-button:hover {
+  background-color: #EF4444;
+  border-color: #EF4444;
+}
+
+.delete-button:active {
+  transform: scale(0.90);
 }

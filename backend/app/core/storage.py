@@ -17,6 +17,10 @@ class StorageBackend(ABC):
     def path_for(self, key: str) -> Path:
         """Resolve `key` para um caminho local (usado pelo servidor de estáticos)."""
 
+    @abstractmethod
+    def delete(self, stored_path: str) -> None:
+        """Remove o arquivo em `stored_path` (caminho retornado por `save`). No-op se não existir."""
+
 
 class LocalStorageBackend(StorageBackend):
     def __init__(self, root: Path):
@@ -30,6 +34,9 @@ class LocalStorageBackend(StorageBackend):
 
     def path_for(self, key: str) -> Path:
         return self.root / key
+
+    def delete(self, stored_path: str) -> None:
+        Path(stored_path).unlink(missing_ok=True)
 
 
 # Backend padrão do processo (uploads locais na raiz do backend).

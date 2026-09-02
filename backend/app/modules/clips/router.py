@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 
 from app.core.database import get_session, engine
 from app.core.deps import get_current_user
-from app.core.exceptions import NotFoundError, ConflictError, DomainError
+from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError, DomainError
 from app.core.storage import get_storage
 from app.modules.identity.models import User
 from app.modules.clips.models import Video, ProcessingJob, Clip, Candidate
@@ -129,6 +129,29 @@ async def create_job(
 
     return {"job_id": str(job.id), "status": job.status}
 
+@router.delete("/{job_id}/clips", status_code=204)
+def delete_job_clips(
+    job_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Apaga todos os clipes de um job (remove o job do histórico)."""
+    job = session.get(ProcessingJob, job_id)
+    if not job:
+        raise NotFoundError("Job não encontrado.")
+
+    video = session.get(Video, job.video_id)
+    if not video or video.user_id != current_user.id:
+        raise ForbiddenError("Este job não pertence ao usuário autenticado.")
+
+    storage = get_storage()
+    clips = session.exec(select(Clip).where(Clip.job_id == job_id)).all()
+    for clip in clips:
+        storage.delete(clip.storage_path)
+        session.delete(clip)
+    session.commit()
+
+
 @router.post("/{job_id}/confirm")
 def confirm_player(
     job_id: uuid.UUID, 
@@ -199,6 +222,26 @@ def list_clips(
             ],
         })
     return result
+
+
+@clips_router.delete("/{clip_id}", status_code=204)
+def delete_clip(
+    clip_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    clip = session.get(Clip, clip_id)
+    if not clip:
+        raise NotFoundError("Clipe não encontrado.")
+
+    job = session.get(ProcessingJob, clip.job_id)
+    video = session.get(Video, job.video_id) if job else None
+    if not video or video.user_id != current_user.id:
+        raise ForbiddenError("Este clipe não pertence ao usuário autenticado.")
+
+    get_storage().delete(clip.storage_path)
+    session.delete(clip)
+    session.commit()
 
 
 def _format_duration(seconds: float) -> str:

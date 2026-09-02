@@ -1,6 +1,6 @@
-import { AlertCircle, Download } from "lucide-react";
+import { AlertCircle, Download, Trash2 } from "lucide-react";
 import './ClipCard.css';
-import { downloadClip } from "../../services/api";
+import { downloadClip, deleteClip } from "../../services/api";
 
 export type ClipStatus = 'generating' | 'completed' | 'error';
 
@@ -8,7 +8,7 @@ export interface ClipData {
     id: string;
     title: string;
     status: ClipStatus;
-    progress?: number; 
+    progress?: number;
     thumbnailUrl?: string;
     duration?: string;
     videoUrl?: string;
@@ -16,9 +16,10 @@ export interface ClipData {
 
 interface ClipCardProps {
     clip: ClipData;
+    onDeleted?: (clipId: string) => void;
 }
 
-export function ClipCard({ clip }: ClipCardProps) {
+export function ClipCard({ clip, onDeleted }: ClipCardProps) {
 
     async function handleDownload() {
         if (!clip.videoUrl) return;
@@ -29,7 +30,18 @@ export function ClipCard({ clip }: ClipCardProps) {
                 alert("Não foi possível baixar o clipe. Tente novamente.");
             }
     }
-    
+
+    async function handleDelete() {
+        if (!window.confirm(`Apagar o clipe "${clip.title}"? Essa ação não pode ser desfeita.`)) return;
+        try {
+            await deleteClip(clip.id);
+            onDeleted?.(clip.id);
+        } catch (err) {
+            console.error("Erro ao apagar clipe:", err);
+            alert("Não foi possível apagar o clipe. Tente novamente.");
+        }
+    }
+
     // EARLY RETURN: Renderiza o Skeleton se estiver processando
     if (clip.status === 'generating') {
         return (
@@ -79,6 +91,14 @@ export function ClipCard({ clip }: ClipCardProps) {
                             aria-label={`Baixar ${clip.title}`}
                         >
                             <Download size={18} />
+                        </button>
+                        <button
+                            className="delete-button"
+                            onClick={handleDelete}
+                            title="Apagar clipe"
+                            aria-label={`Apagar ${clip.title}`}
+                        >
+                            <Trash2 size={18} />
                         </button>
                     </div>
                 </div>
