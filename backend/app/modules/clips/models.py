@@ -14,7 +14,7 @@ class Video(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="users.id")
     original_filename: str
-    storage_path: str
+    storage_path: Optional[str] = None
     duration_seconds: Optional[float] = None
     file_size_mb: Optional[float] = None
     uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -48,6 +48,7 @@ class Clip(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     job_id: uuid.UUID = Field(foreign_key="processing_jobs.id")
     storage_path: str
+    status: str = Field(default="TEMPORARY")
     start_timestamp: float
     end_timestamp: float
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -64,7 +65,7 @@ class Candidate(SQLModel, table=True):
     name: str
     number: int
     color_hex: Optional[str] = None
-    image_path: str
+    image_path: Optional[str] = None
     is_target: bool = Field(default=False)
 
     job: Optional["ProcessingJob"] = Relationship(back_populates="candidates")
