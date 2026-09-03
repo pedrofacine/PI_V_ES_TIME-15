@@ -18,11 +18,11 @@ function groupToClips(group: ClipHistoryGroup): ClipWithDate[] {
     return group.clips.map((clip, i) => ({
         id:           clip.id,
         title:        `CLIP#${String(i + 1).padStart(3, "0")}`,
-        status:       "completed" as const,
+        status:       (clip.status === 'DELETED' || !clip.file_url) ? 'expired' : 'completed',
         thumbnailUrl: undefined,
         duration:     clip.duration,
         generatedAt:  group.generated_at,
-        videoUrl:     clip.file_url,
+        videoUrl:     clip.file_url || undefined,
         jobId:        group.job_id,
     }));
 }

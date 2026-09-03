@@ -2,7 +2,7 @@ import { AlertCircle, Download, Trash2 } from "lucide-react";
 import './ClipCard.css';
 import { downloadClip, deleteClip } from "../../services/api";
 
-export type ClipStatus = 'generating' | 'completed' | 'error';
+export type ClipStatus = 'generating' | 'completed' | 'error' | 'expired';
 
 export interface ClipData {
     id: string;
@@ -57,7 +57,7 @@ export function ClipCard({ clip, onDeleted }: ClipCardProps) {
         );
     }
 
-    // Renderização normal para Concluído ou Erro
+    // Renderização normal para Concluído, Erro ou Expirado
     return (
         <div className="clip-card">
             
@@ -66,6 +66,13 @@ export function ClipCard({ clip, onDeleted }: ClipCardProps) {
                     <div className="media-overlay error">
                         <AlertCircle size={32} color="#EF4444" />
                         <span>Falha ao separar clipe</span>
+                    </div>
+                )}
+
+                {clip.status === 'expired' && (
+                    <div className="media-overlay expired">
+                        <AlertCircle size={32} color="#9ca3af" />
+                        <span style={{ marginTop: '8px' }}>Clipe expirado</span>
                     </div>
                 )}
 
@@ -79,19 +86,21 @@ export function ClipCard({ clip, onDeleted }: ClipCardProps) {
                 )}
             </div>
 
-            {clip.status === 'completed' && (
+            {(clip.status === 'completed' || clip.status === 'expired') && (
                 <div className="clip-card-info">
                     <h3 className="clip-title">{clip.title}</h3>
                     <div className="clip-actions">
-                        <button
-                            className="download-button"
-                            onClick={handleDownload}
-                            disabled={!clip.videoUrl}
-                            title={clip.videoUrl ? "Baixar clipe" : "URL do clipe não disponível"}
-                            aria-label={`Baixar ${clip.title}`}
-                        >
-                            <Download size={18} />
-                        </button>
+                        {clip.status === 'completed' && (
+                            <button
+                                className="download-button"
+                                onClick={handleDownload}
+                                disabled={!clip.videoUrl}
+                                title={clip.videoUrl ? "Baixar clipe" : "URL do clipe não disponível"}
+                                aria-label={`Baixar ${clip.title}`}
+                            >
+                                <Download size={18} />
+                            </button>
+                        )}
                         <button
                             className="delete-button"
                             onClick={handleDelete}

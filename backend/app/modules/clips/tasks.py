@@ -185,7 +185,9 @@ def run_retention_policy():
         for clip in clips_to_delete:
             print(f"[RETENTION POLICY] Deletando clipe {clip.id}")
             storage.delete(clip.storage_path)
-            session.delete(clip)
+            clip.storage_path = None
+            clip.status = "DELETED"
+            session.add(clip)
             
         # 2. Vídeos brutos com mais de 14 dias que não possuem jobs em andamento (PENDING, FAST_SCAN, WAITING_USER, TRACKING, EXTRACTING)
         active_statuses = ["PENDING", "FAST_SCAN", "WAITING_USER", "TRACKING", "EXTRACTING"]
@@ -218,3 +220,4 @@ def run_retention_policy():
         traceback.print_exc()
     finally:
         session.close()
+

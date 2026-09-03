@@ -13,10 +13,10 @@ function toClipData(clip: ClipResult, index: number): ClipData {
   return {
     id:           clip.id,
     title:        `CLIP#${String(index + 1).padStart(3, "0")}`,
-    status:       "completed",
+    status:       (clip.status === 'DELETED' || !clip.file_url) ? 'expired' : 'completed',
     thumbnailUrl: undefined,
     duration:     `${Math.floor(clip.duration / 60)}:${String(Math.round(clip.duration % 60)).padStart(2, "0")}`,
-    videoUrl:     clip.file_url,
+    videoUrl:     clip.file_url || undefined,
   };
 }
 
@@ -46,8 +46,10 @@ export default function ProcessingClipsView({ job }: ProcessingClipsProps) {
 
   function handleDownloadAll() {
     clips.forEach((clip, index) => {
-      const title = `CLIP#${String(index + 1).padStart(3, "0")}`;
-      downloadClip(clip.file_url, title).catch(err => console.error(`Erro ao baixar ${title}:`, err));
+      if (clip.file_url) {
+        const title = `CLIP#${String(index + 1).padStart(3, "0")}`;
+        downloadClip(clip.file_url, title).catch(err => console.error(`Erro ao baixar ${title}:`, err));
+      }
     });
   }
 

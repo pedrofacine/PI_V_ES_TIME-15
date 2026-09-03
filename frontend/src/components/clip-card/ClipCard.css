@@ -89,6 +89,11 @@
     color: #EF4444;
 }
 
+.media-overlay.expired {
+    background: #1f2937;
+    color: #9ca3af;
+}
+
 .media-overlay.hover-play {
     background: rgba(0, 0, 0, 0.4);
     opacity: 0;

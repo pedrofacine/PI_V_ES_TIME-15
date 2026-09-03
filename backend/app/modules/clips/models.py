@@ -47,7 +47,7 @@ class Clip(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     job_id: uuid.UUID = Field(foreign_key="processing_jobs.id")
-    storage_path: str
+    storage_path: Optional[str] = None
     status: str = Field(default="TEMPORARY")
     start_timestamp: float
     end_timestamp: float

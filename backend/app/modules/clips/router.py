@@ -84,10 +84,11 @@ def stream_job_status(job_id: uuid.UUID):
                     "clips": [
                         {
                             "id": str(c.id),
-                            "file_url": f"/uploads/clips/{job_id}/{Path(c.storage_path).name}",
+                            "file_url": f"/uploads/clips/{job_id}/{Path(c.storage_path).name}" if c.storage_path else None,
                             "start_timestamp": c.start_timestamp,
                             "end_timestamp": c.end_timestamp,
                             "duration": round(c.end_timestamp - c.start_timestamp, 2),
+                            "status": c.status,
                         }
                         for c in clips
                     ]
@@ -240,8 +241,9 @@ def list_clips(
             "clips": [
                 {
                     "id": str(c.id),
-                    "file_url": f"/uploads/clips/{job.id}/{Path(c.storage_path).name}",
+                    "file_url": f"/uploads/clips/{job.id}/{Path(c.storage_path).name}" if c.storage_path else None,
                     "duration": _format_duration(c.end_timestamp - c.start_timestamp),
+                    "status": c.status,
                 }
                 for c in clips
             ],
